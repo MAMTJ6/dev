@@ -1,10 +1,12 @@
 // Vercel serverless function: POST /api/publish-ustaz
-// Reads the ustaz registry from Supabase and publishes the public
+// Reads the ustaz registry from NEON and publishes the public
 // penceramah directory to kuliah/data/penceramah.json (separate file —
 // never merged into jadual_lengkap_v2.json).
 //
 // Required Vercel environment variables:
-//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GITHUB_TOKEN, GITHUB_REPO
+//   NEON_DATABASE_URL, AUTH_SECRET, GITHUB_TOKEN, GITHUB_REPO
+
+const { sql, requireAdmin } = require('../lib/db');
 
 module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,44 +16,17 @@ module.exports = async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
 
-    // ── 1. Verify Supabase session ──────────────────────────────────────
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Missing Authorization header' });
-    }
-    const userJwt = authHeader.slice(7);
+    // ── 1. Verify session (cookie, Google OAuth via /api/auth) ──────────────
+    const { admin, error: authErr } = await requireAdmin(req, 'kuliah');
+    if (authErr) return res.status(authErr).json({ error: 'Unauthorized' });
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !serviceKey) {
-        return res.status(500).json({ error: 'Server misconfiguration: missing Supabase env vars' });
+    // ── 2. Fetch ustaz registry from Neon ───────────────────────────────────
+    let ustazList;
+    try {
+        ustazList = await sql`SELECT id, full_name, short_name, jawatan, tajuk_kuliah, profile_url, is_public FROM ustaz`;
+    } catch (e) {
+        return res.status(500).json({ error: 'Failed to fetch ustaz from Neon', details: e.message });
     }
-
-    const authCheck = await fetch(`${supabaseUrl}/auth/v1/user`, {
-        headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${userJwt}` },
-    });
-    if (!authCheck.ok) {
-        return res.status(401).json({ error: 'Invalid or expired session' });
-    }
-    const authUser   = await authCheck.json();
-    const actorEmail = authUser?.email || null;
-
-    // ── 2. Fetch ustaz registry ─────────────────────────────────────────
-    const ustazRes = await fetch(
-        `${supabaseUrl}/rest/v1/ustaz?select=id,full_name,short_name,jawatan,tajuk_kuliah,profile_url,is_public&order=short_name`,
-        {
-            headers: {
-                'apikey':        serviceKey,
-                'Authorization': `Bearer ${serviceKey}`,
-                'Accept':        'application/json',
-            },
-        }
-    );
-    if (!ustazRes.ok) {
-        const err = await ustazRes.text();
-        return res.status(500).json({ error: 'Failed to fetch ustaz from Supabase', status: ustazRes.status, details: err });
-    }
-    const ustazList = await ustazRes.json();
 
     // Numeric-aware sort in JS (Postgres orders lexicographically — "10" < "2").
     // Rows with is_public === false are excluded here, so they never reach
@@ -131,33 +106,7 @@ module.exports = async function handler(req, res) {
     const updateData = await updateRes.json();
 
     try {
-        let actorName = null;
-        if (actorEmail) {
-            const adminRes = await fetch(
-                `${supabaseUrl}/rest/v1/admins?select=name&email=ilike.${encodeURIComponent(actorEmail)}`,
-                { headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Accept': 'application/json' } }
-            );
-            if (adminRes.ok) {
-                const rows = await adminRes.json();
-                actorName = rows[0]?.name || null;
-            }
-        }
-        await fetch(`${supabaseUrl}/rest/v1/activity_log`, {
-            method:  'POST',
-            headers: {
-                'apikey':        serviceKey,
-                'Authorization': `Bearer ${serviceKey}`,
-                'Content-Type':  'application/json',
-                'Prefer':        'return=minimal',
-            },
-            body: JSON.stringify({
-                actor_email:  actorEmail || 'unknown',
-                actor_name:   actorName,
-                action:       'publish_ustaz',
-                target_label: 'penceramah',
-                detail:       `${penceramah.length} penceramah diterbitkan.`,
-            }),
-        });
+        await sql`INSERT INTO activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${admin.email}, ${admin.name || null}, 'publish_ustaz', 'penceramah', ${penceramah.length + ' penceramah diterbitkan.'})`;
     } catch (e) {
         console.error('activity_log insert failed:', e);
     }

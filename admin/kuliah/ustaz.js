@@ -7,7 +7,7 @@ let pendingRemoveProfile = false;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
-    const session = await requireAuth();
+    const session = await requireKuliahAuth();
     if (!session) return;
     if (!(await requireModuleAccess('kuliah'))) return;
     document.getElementById('add-ustaz-btn').style.display = canWriteModule('kuliah') ? '' : 'none';
@@ -19,12 +19,12 @@ async function init() {
 
 // ─── Load and render ──────────────────────────────────────────────────────────
 async function loadUstaz() {
-    const { data, error } = await db
-        .from('ustaz')
-        .select('*');
-
-    if (error) {
-        showToast('Gagal memuatkan senarai penceramah: ' + error.message, 'error');
+    let data;
+    try {
+        const out = await kuliahApi('ustaz');
+        data = out.ustaz;
+    } catch (e) {
+        showToast('Gagal memuatkan senarai penceramah: ' + e.message, 'error');
         return;
     }
     allUstaz = (data || []).sort((a, b) =>
@@ -262,83 +262,45 @@ async function saveUstaz() {
     saveBtn.innerHTML = '<span class="spinner"></span> Menyimpan...';
 
     const before = id ? allUstaz.find(u => u.id === id) : null;
-    let newPosterUrl = null;
 
-    if (posterFile) {
-        const ext      = posterFile.name.split('.').pop().toLowerCase();
-        const safeName = shortName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
-        const filename = `posters/${safeName}-${Date.now()}.${ext}`;
-
-        const { error: uploadErr } = await db.storage
-            .from('kuliah-assets')
-            .upload(filename, posterFile, { upsert: true, contentType: posterFile.type });
-
-        if (uploadErr) {
-            showToast('Gagal muat naik poster: ' + uploadErr.message, 'error');
-            saveBtn.disabled    = false;
-            saveBtn.textContent = 'Simpan';
-            return;
+    // Poster images go to the GitHub repo via /api/upload (Neon has no
+    // Storage). URL input or repo path is used as-is.
+    async function resolveImage(file, urlInput, folder, label) {
+        if (file && urlInput) return { err: `Pilih sama ada muat naik fail atau URL ${label}, bukan kedua-dua.` };
+        if (file) {
+            try {
+                return { url: await uploadImage(folder, file) };
+            } catch (e) {
+                return { err: `Gagal muat naik ${label}: ` + e.message };
+            }
         }
-
-        const { data: { publicUrl } } = db.storage
-            .from('kuliah-assets')
-            .getPublicUrl(filename);
-        newPosterUrl = publicUrl;
-    } else if (posterUrlInput) {
-        newPosterUrl = posterUrlInput;
+        return { url: urlInput || null };
     }
 
-    let newSquareUrl = null;
-
-    if (squareFile) {
-        const ext      = squareFile.name.split('.').pop().toLowerCase();
-        const safeName = shortName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
-        const filename = `posters-square/${safeName}-${Date.now()}.${ext}`;
-
-        const { error: uploadErr } = await db.storage
-            .from('kuliah-assets')
-            .upload(filename, squareFile, { upsert: true, contentType: squareFile.type });
-
-        if (uploadErr) {
-            showToast('Gagal muat naik poster segi empat sama: ' + uploadErr.message, 'error');
-            saveBtn.disabled    = false;
-            saveBtn.textContent = 'Simpan';
-            return;
-        }
-
-        const { data: { publicUrl } } = db.storage
-            .from('kuliah-assets')
-            .getPublicUrl(filename);
-        newSquareUrl = publicUrl;
-    } else if (squareUrlInput) {
-        newSquareUrl = squareUrlInput;
+    const r1 = await resolveImage(posterFile, posterUrlInput, 'posters', 'gambar');
+    if (r1.err) {
+        showToast(r1.err, 'error');
+        saveBtn.disabled    = false;
+        saveBtn.textContent = 'Simpan';
+        return;
     }
-
-    let newProfileUrl = null;
-
-    if (profileFile) {
-        const ext      = profileFile.name.split('.').pop().toLowerCase();
-        const safeName = shortName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
-        const filename = `profiles/${safeName}-${Date.now()}.${ext}`;
-
-        const { error: uploadErr } = await db.storage
-            .from('kuliah-assets')
-            .upload(filename, profileFile, { upsert: true, contentType: profileFile.type });
-
-        if (uploadErr) {
-            showToast('Gagal muat naik mugshot: ' + uploadErr.message, 'error');
-            saveBtn.disabled    = false;
-            saveBtn.textContent = 'Simpan';
-            return;
-        }
-
-        const { data: { publicUrl } } = db.storage
-            .from('kuliah-assets')
-            .getPublicUrl(filename);
-        newProfileUrl = publicUrl;
-    } else if (profileUrlInput) {
-        newProfileUrl = profileUrlInput;
+    const r2 = await resolveImage(squareFile, squareUrlInput, 'posters-square', 'gambar segi empat sama');
+    if (r2.err) {
+        showToast(r2.err, 'error');
+        saveBtn.disabled    = false;
+        saveBtn.textContent = 'Simpan';
+        return;
     }
+    const r3 = await resolveImage(profileFile, profileUrlInput, 'profiles', 'mugshot');
+    if (r3.err) {
+        showToast(r3.err, 'error');
+        saveBtn.disabled    = false;
+        saveBtn.textContent = 'Simpan';
+        return;
+    }
+    const newPosterUrl = r1.url;
+    const newSquareUrl = r2.url;
+    const newProfileUrl = r3.url;
 
     const payload = {
         full_name:    fullName,
@@ -364,24 +326,24 @@ async function saveUstaz() {
         payload.profile_url = newProfileUrl;
     }
 
-    let error;
-    if (id) {
-        ({ error } = await db.from('ustaz').update(payload).eq('id', id));
-    } else {
-        ({ error } = await db.from('ustaz').insert(payload));
+    try {
+        await kuliahApi('ustaz-save', {
+            method: 'POST',
+            body: { row: { id: id || null, ...payload } },
+        });
+    } catch (e) {
+        if (String(e.message || '').includes('taken')) {
+            showToast('Nama Ringkas "' + shortName + '" sudah digunakan oleh penceramah lain. Sila gunakan Nama Ringkas yang lain.', 'error');
+        } else {
+            showToast('Gagal menyimpan: ' + e.message, 'error');
+        }
+        saveBtn.disabled  = false;
+        saveBtn.textContent = 'Simpan';
+        return;
     }
 
     saveBtn.disabled  = false;
     saveBtn.textContent = 'Simpan';
-
-    if (error) {
-        if (error.code === '23505' && error.message.includes('ustaz_short_name_key')) {
-            showToast('Nama Ringkas "' + shortName + '" sudah digunakan oleh penceramah lain. Sila gunakan Nama Ringkas yang lain.', 'error');
-        } else {
-            showToast('Gagal menyimpan: ' + error.message, 'error');
-        }
-        return;
-    }
 
     showToast(id ? 'Penceramah dikemaskini' : 'Penceramah berjaya ditambah', 'success');
     if (id) {
@@ -393,9 +355,9 @@ async function saveUstaz() {
             profileChanged: pendingRemoveProfile || !!newProfileUrl, profileRemoved: pendingRemoveProfile,
         };
         const diff = buildUstazDiffText(before, after);
-        if (diff) await logActivity('ustaz_update', shortName, diff);
+        if (diff) await neonLog('ustaz_update', shortName, diff);
     } else {
-        await logActivity('ustaz_create', shortName, `Penceramah baharu ditambah${topic ? `: "${topic}"` : ''}.`);
+        await neonLog('ustaz_create', shortName, `Penceramah baharu ditambah${topic ? `: "${topic}"` : ''}.`);
     }
     closeUstazModal();
     await loadUstaz();
@@ -438,21 +400,19 @@ async function confirmDelete() {
     btn.textContent = 'Menyemak...';
 
     // Guard: check if this ustaz is still referenced in the schedule
-    const { count, error: countErr } = await db
-        .from('schedule')
-        .select('id', { count: 'exact', head: true })
-        .or(`subuh_ustaz_id.eq.${deletingId},maghrib_ustaz_id.eq.${deletingId}`);
-
-    if (countErr) {
-        showToast('Gagal menyemak jadual: ' + countErr.message, 'error');
-        btn.disabled  = false;
-        btn.textContent = 'Padam';
-        return;
+    let refCount = 0;
+    try {
+        const out = await kuliahApi('ustaz-delete', { method: 'POST', body: { id: deletingId, checkOnly: true } });
+        refCount = out.count || 0;
+    } catch (e) {
+        // checkOnly unsupported on older deploys — fall through to delete,
+        // the server still blocks referenced rows with 409.
+        refCount = 0;
     }
 
-    if (count > 0) {
+    if (refCount > 0) {
         showToast(
-            `Tidak boleh dipadam — penceramah ini masih ada dalam ${count} sesi jadual. Alih keluar dari jadual dahulu.`,
+            `Tidak boleh dipadam — penceramah ini masih ada dalam ${refCount} sesi jadual. Alih keluar dari jadual dahulu.`,
             'error', 7000
         );
         btn.disabled  = false;
@@ -463,18 +423,25 @@ async function confirmDelete() {
 
     btn.textContent = 'Memadam...';
     const target = allUstaz.find(u => u.id === deletingId);
-    const { error } = await db.from('ustaz').delete().eq('id', deletingId);
+    try {
+        await kuliahApi('ustaz-delete', { method: 'POST', body: { id: deletingId } });
+    } catch (e) {
+        if (String(e.message || '').includes('referenced')) {
+            showToast('Tidak boleh dipadam — penceramah ini masih ada dalam jadual. Alih keluar dari jadual dahulu.', 'error', 7000);
+            closeDeleteModal();
+        } else {
+            showToast('Gagal memadam: ' + e.message, 'error');
+        }
+        btn.disabled  = false;
+        btn.textContent = 'Padam';
+        return;
+    }
 
     btn.disabled  = false;
     btn.textContent = 'Padam';
 
-    if (error) {
-        showToast('Gagal memadam: ' + error.message, 'error');
-        return;
-    }
-
     showToast('Penceramah berjaya dipadam', 'success');
-    await logActivity('ustaz_delete', target?.short_name || '(tidak diketahui)', `Penceramah "${target?.full_name || ''}" dipadam.`);
+    await neonLog('ustaz_delete', target?.short_name || '(tidak diketahui)', `Penceramah "${target?.full_name || ''}" dipadam.`);
     closeDeleteModal();
     await loadUstaz();
 }
@@ -506,19 +473,19 @@ function wireOnePosterPreview(inputId, previewId) {
 async function loadLastPublishedUstazNote() {
     const el = document.getElementById('last-published-ustaz-note');
     if (!el) return;
-    const { data, error } = await db
-        .from('activity_log')
-        .select('created_at,actor_name,actor_email,detail')
-        .eq('action', 'publish_ustaz')
-        .order('created_at', { ascending: false })
-        .limit(1);
-    if (error || !data || data.length === 0) {
+    let row = null;
+    try {
+        const out = await kuliahApi('last-published', { params: { label: 'penceramah', logAction: 'publish_ustaz' } });
+        row = out.row;
+    } catch {
+        row = null;
+    }
+    if (!row) {
         el.textContent = 'Senarai penceramah belum pernah diterbitkan.';
         return;
     }
-    const row = data[0];
     const who = row.actor_name || row.actor_email || '';
-    el.textContent = `Terakhir diterbitkan: ${formatDateTimeMY(row.created_at)}${who ? ` oleh ${who}` : ''}${row.detail ? ` — ${row.detail}` : ''} (${formatRelativeMY(row.created_at)})`;
+    el.textContent = `Terakhir diterbitkan: ${formatDateTimeMY(row.created_at)}${who ? ` oleh ${who}` : ''} (${formatRelativeMY(row.created_at)})`;
 }
 
 async function publishUstaz() {
@@ -526,17 +493,12 @@ async function publishUstaz() {
         showToast('Anda tiada kebenaran untuk menerbitkan', 'error');
         return;
     }
-    const session = await requireAuth();
-    if (!session) return;
     const btn = document.getElementById('publish-ustaz-btn');
     btn.disabled = true;
     const orig = btn.textContent;
     btn.innerHTML = '<span class="spinner"></span> Menerbitkan...';
     try {
-        const res = await fetch('/api/publish-ustaz', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${session.access_token}` },
-        });
+        const res = await fetch('/api/publish-ustaz', { method: 'POST' });
         const out = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(out.error || res.statusText);
         showToast(`Penceramah diterbitkan (${out.published?.count ?? '?'} orang)`, 'success');

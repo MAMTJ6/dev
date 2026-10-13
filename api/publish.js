@@ -1,12 +1,14 @@
 // Vercel serverless function: POST /api/publish?month=YYYY-MM
-// Reads schedule from Supabase, merges it into jadual_lengkap_v2.json's
+// Reads schedule from NEON, merges it into jadual_lengkap_v2.json's
 // months map (keyed by real current/next YYYY-MM), commits to GitHub.
 //
-// Required Vercel environment variables (set in Vercel Dashboard → Project → Settings → Environment Variables):
-//   SUPABASE_URL             — your Supabase project URL
-//   SUPABASE_SERVICE_ROLE_KEY — service role key (never expose to browser)
-//   GITHUB_TOKEN             — fine-grained PAT with contents:write on multimedia-mamtj6/dev
-//   GITHUB_REPO              — "multimedia-mamtj6/dev"
+// Required Vercel environment variables:
+//   NEON_DATABASE_URL — Neon pooled connection string
+//   AUTH_SECRET       — session signing secret (lib/db.js)
+//   GITHUB_TOKEN      — fine-grained PAT with contents:write on MAMTJ6/dev
+//   GITHUB_REPO       — "MAMTJ6/dev"
+
+const { sql, requireAdmin } = require('../lib/db');
 
 const BULAN = [
     'Januari','Februari','Mac','April','Mei','Jun',
@@ -80,6 +82,12 @@ function mergeAndPruneMonthsStore(monthsStore, month, newMonthEntry, realCurrent
     return merged;
 }
 
+// Neon node-postgres may return DATE as a Date — normalize to YYYY-MM-DD.
+function dateStr(d) {
+    if (d instanceof Date) return d.toISOString().slice(0, 10);
+    return String(d).slice(0, 10);
+}
+
 module.exports = async function handler(req, res) {
     // ── CORS ────────────────────────────────────────────────────────────────
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -89,31 +97,11 @@ module.exports = async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
 
-    // ── 1. Verify Supabase session ──────────────────────────────────────────
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Missing Authorization header' });
-    }
-    const userJwt = authHeader.slice(7);
-
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !serviceKey) {
-        return res.status(500).json({ error: 'Server misconfiguration: missing Supabase env vars' });
-    }
-
-    // Verify by calling Supabase /auth/v1/user — if it returns a user the JWT is valid
-    const authCheck = await fetch(`${supabaseUrl}/auth/v1/user`, {
-        headers: {
-            'apikey':        serviceKey,
-            'Authorization': `Bearer ${userJwt}`,
-        },
-    });
-    if (!authCheck.ok) {
-        return res.status(401).json({ error: 'Invalid or expired session' });
-    }
-    const authUser   = await authCheck.json();
-    const actorEmail = authUser?.email || null;
+    // ── 1. Verify session (cookie, Google OAuth via /api/auth) ──────────────
+    const { admin, error: authErr } = await requireAdmin(req, 'kuliah');
+    if (authErr) return res.status(authErr).json({ error: 'Unauthorized' });
+    const actorEmail = admin.email;
+    const actorName = admin.name || null;
 
     // ── 2. Parse month param ────────────────────────────────────────────────
     const month = typeof req.query.month === 'string' ? req.query.month.trim() : '';
@@ -141,46 +129,17 @@ module.exports = async function handler(req, res) {
     const lastDay   = new Date(year, monthNum, 0).getDate();
     const endDate   = `${month}-${String(lastDay).padStart(2, '0')}`;
 
-    // ── 3. Fetch ustaz lookup from Supabase ─────────────────────────────────
-    const ustazRes = await fetch(
-        `${supabaseUrl}/rest/v1/ustaz?select=id,full_name,tajuk_kuliah,poster_url,square_url`,
-        {
-            headers: {
-                'apikey':        serviceKey,
-                'Authorization': `Bearer ${serviceKey}`,
-                'Accept':        'application/json',
-            },
-        }
-    );
-    if (!ustazRes.ok) {
-        const err = await ustazRes.text();
-        return res.status(500).json({ error: 'Failed to fetch ustaz from Supabase', status: ustazRes.status, details: err });
+    // ── 3. Fetch ustaz + schedule from Neon ─────────────────────────────────
+    let ustazList, scheduleRows;
+    try {
+        ustazList = await sql`SELECT id, full_name, tajuk_kuliah, poster_url, square_url FROM ustaz`;
+        scheduleRows = await sql`SELECT date, cuti_umum, subuh_ustaz_id, maghrib_ustaz_id, subuh_pending, maghrib_pending, subuh_khas, maghrib_khas, subuh_ditangguhkan, maghrib_ditangguhkan FROM schedule WHERE date >= ${startDate} AND date <= ${endDate} ORDER BY date`;
+    } catch (e) {
+        return res.status(500).json({ error: 'Failed to fetch data from Neon', details: e.message });
     }
-    const ustazList = await ustazRes.json();
     const ustazMap  = Object.fromEntries(ustazList.map(u => [u.id, u]));
 
-    // ── 4. Fetch schedule rows ──────────────────────────────────────────────
-    const schedRes = await fetch(
-        `${supabaseUrl}/rest/v1/schedule` +
-        `?select=date,cuti_umum,subuh_ustaz_id,maghrib_ustaz_id,subuh_pending,maghrib_pending,subuh_khas,maghrib_khas,subuh_ditangguhkan,maghrib_ditangguhkan` +
-        `&date=gte.${startDate}` +
-        `&date=lte.${endDate}` +
-        `&order=date`,
-        {
-            headers: {
-                'apikey':        serviceKey,
-                'Authorization': `Bearer ${serviceKey}`,
-                'Accept':        'application/json',
-            },
-        }
-    );
-    if (!schedRes.ok) {
-        const err = await schedRes.text();
-        return res.status(500).json({ error: 'Failed to fetch schedule from Supabase', details: err });
-    }
-    const scheduleRows = await schedRes.json();
-
-    // ── 5. Build this month's entry ─────────────────────────────────────────
+    // ── 4. Build this month's entry ─────────────────────────────────────────
     const tajukBulan = `BULAN ${BULAN[monthNum - 1].toUpperCase()} ${year}`;
     const now        = new Date();
     const tarikhKemasKini =
@@ -190,7 +149,7 @@ module.exports = async function handler(req, res) {
         const subuhUstaz   = row.subuh_ustaz_id   ? ustazMap[row.subuh_ustaz_id]   : null;
         const maghribUstaz = row.maghrib_ustaz_id ? ustazMap[row.maghrib_ustaz_id] : null;
         return {
-            date:      row.date,
+            date:      dateStr(row.date),
             subuh:     row.subuh_pending ? { pending: true, ...(row.subuh_khas ? { khas: true } : {}), ...(row.subuh_ditangguhkan ? { ditangguhkan: true } : {}) } : (subuhUstaz ? {
                 nama_penceramah: subuhUstaz.full_name,
                 tajuk_kuliah:    subuhUstaz.tajuk_kuliah || null,
@@ -211,9 +170,9 @@ module.exports = async function handler(req, res) {
         };
     });
 
-    // ── 6. Push to GitHub ────────────────────────────────────────────────────
+    // ── 5. Push to GitHub ────────────────────────────────────────────────────
     const githubToken = process.env.GITHUB_TOKEN;
-    const githubRepo  = process.env.GITHUB_REPO;  // e.g. "multimedia-mamtj6/dev"
+    const githubRepo  = process.env.GITHUB_REPO;  // e.g. "MAMTJ6/dev"
     if (!githubToken || !githubRepo) {
         return res.status(500).json({ error: 'Server misconfiguration: missing GitHub env vars' });
     }
@@ -281,39 +240,7 @@ module.exports = async function handler(req, res) {
     const updateData = await updateRes.json();
 
     try {
-        let actorName = null;
-        if (actorEmail) {
-            const adminRes = await fetch(
-                `${supabaseUrl}/rest/v1/admins?select=name&email=ilike.${encodeURIComponent(actorEmail)}`,
-                { headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Accept': 'application/json' } }
-            );
-            if (adminRes.ok) {
-                const rows = await adminRes.json();
-                actorName = rows[0]?.name || null;
-            } else {
-                // Was silently swallowed before 2026-07-22 — a missing GRANT
-                // (or any other admins-lookup failure) fell back to the raw
-                // email with zero visibility. Log it so this doesn't hide again.
-                console.error('admins name lookup failed:', adminRes.status, await adminRes.text().catch(() => ''));
-            }
-        }
-
-        await fetch(`${supabaseUrl}/rest/v1/activity_log`, {
-            method:  'POST',
-            headers: {
-                'apikey':        serviceKey,
-                'Authorization': `Bearer ${serviceKey}`,
-                'Content-Type':  'application/json',
-                'Prefer':        'return=minimal',
-            },
-            body: JSON.stringify({
-                actor_email:  actorEmail || 'unknown',
-                actor_name:   actorName,
-                action:       'publish',
-                target_label: monthLabelFromKey(month),
-                detail:       `${senaraiHari.length} hari diterbitkan.`,
-            }),
-        });
+        await sql`INSERT INTO activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${actorEmail}, ${actorName}, 'publish', ${monthLabelFromKey(month)}, ${senaraiHari.length + ' hari diterbitkan.'})`;
     } catch (e) {
         console.error('activity_log insert failed:', e); // never blocks the publish response
     }

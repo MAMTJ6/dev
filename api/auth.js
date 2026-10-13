@@ -17,7 +17,13 @@ async function doLogin(req, res) {
   const base = appUrl();
   if (!clientId || !base) return res.status(500).json({ error: 'missing GOOGLE_CLIENT_ID or APP_URL' });
   const state = crypto.randomBytes(16).toString('hex');
-  res.setHeader('Set-Cookie', `${STATE_COOKIE}=${state}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`);
+  const cookies = [`${STATE_COOKIE}=${state}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`];
+  // Optional ?next=/admin/... return path (validated same-origin admin path only).
+  const next = typeof req.query.next === 'string' && /^\/admin\/[a-zA-Z0-9/_.?-]*$/.test(req.query.next)
+    ? req.query.next
+    : null;
+  if (next) cookies.push(`mamtj6_next=${encodeURIComponent(next)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`);
+  res.setHeader('Set-Cookie', cookies);
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${base}/api/auth?action=callback`,
@@ -67,11 +73,14 @@ async function doCallback(req, res) {
   if (!admin) return fail('not_admin');
 
   const jwt = signSession({ email: admin.email, name: admin.name || me.name || null, exp: Date.now() + 12 * 3600 * 1000 });
-  res.setHeader(
-    'Set-Cookie',
-    `${SESSION_COOKIE}=${encodeURIComponent(jwt)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=43200`
-  );
-  res.redirect(302, `${base}/admin/dashboard.html`);
+  const next = getCookie(req, 'mamtj6_next');
+  const dest =
+    next && /^\/admin\/[a-zA-Z0-9/_.?-]*$/.test(next) ? next : `${base}/admin/dashboard.html`;
+  res.setHeader('Set-Cookie', [
+    `${SESSION_COOKIE}=${encodeURIComponent(jwt)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=43200`,
+    'mamtj6_next=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0',
+  ]);
+  res.redirect(302, dest);
 }
 
 async function doLogout(req, res) {

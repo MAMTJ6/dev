@@ -49,10 +49,11 @@ module.exports = async function handler(req, res) {
       const rows = await sql`SELECT id, short_name, full_name, tajuk_kuliah, poster_url, square_url, jawatan, profile_url, is_public FROM ustaz`;
       return res.status(200).json({ ustaz: rows });
     }
-    // ── GET: last publish note ──
+    // ── GET: last publish note (kuliah month publish, or publish_ustaz) ──
     if (req.method === 'GET' && action === 'last-published') {
       const label = String(req.query.label || '');
-      const rows = await sql`SELECT created_at, actor_name, actor_email FROM activity_log WHERE action = 'publish' AND target_label = ${label} ORDER BY created_at DESC LIMIT 1`;
+      const logAction = req.query.logAction === 'publish_ustaz' ? 'publish_ustaz' : 'publish';
+      const rows = await sql`SELECT created_at, actor_name, actor_email FROM activity_log WHERE action = ${logAction} AND target_label = ${label} ORDER BY created_at DESC LIMIT 1`;
       return res.status(200).json({ row: rows[0] || null });
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -106,6 +107,7 @@ module.exports = async function handler(req, res) {
     if (action === 'ustaz-delete') {
       if (!b.id) return res.status(400).json({ error: 'missing id' });
       const refs = await sql`SELECT COUNT(*)::int AS n FROM schedule WHERE subuh_ustaz_id = ${b.id} OR maghrib_ustaz_id = ${b.id}`;
+      if (b.checkOnly) return res.status(200).json({ ok: true, count: refs[0].n });
       if (refs[0].n > 0) return res.status(409).json({ error: 'referenced', count: refs[0].n });
       await sql`DELETE FROM ustaz WHERE id = ${b.id}`;
       return res.status(200).json({ ok: true });

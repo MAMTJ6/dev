@@ -7,7 +7,7 @@ let editingDate = null; // date string currently open in modal
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
-    const session = await requireAuth();
+    const session = await requireKuliahAuth();
     if (!session) return;
     if (!(await requireModuleAccess('kuliah'))) return;
 
@@ -39,39 +39,23 @@ async function loadMonth() {
     // pattern used everywhere else, see canWriteModule() in app.js).
     document.getElementById('month-actions').style.display = canWriteModule('kuliah') ? '' : 'none';
 
-    // Load ustaz list (needed for dropdowns and display)
-    const { data: ustaz, error: ustazErr } = await db
-        .from('ustaz')
-        .select('id, short_name, full_name, tajuk_kuliah, poster_url');
-
-    if (ustazErr) {
-        showToast('Gagal memuatkan senarai penceramah: ' + ustazErr.message, 'error');
+    // Load ustaz list + this month's schedule rows in one call (Neon).
+    const padMonth = String(currentMonth).padStart(2, '0');
+    let ustaz, rows;
+    try {
+        const out = await kuliahApi('schedule', { params: { month: `${currentYear}-${padMonth}` } });
+        ustaz = out.ustaz;
+        rows = out.rows;
+    } catch (e) {
+        showToast('Gagal memuatkan jadual: ' + e.message, 'error');
         return;
     }
-    // Client-side sort by short_name (same as ustaz.js) — Supabase .order('short_name')
-    // sorts lexicographically, not numerically, so never sort short_name server-side.
+    // Client-side sort by short_name (same as ustaz.js) — never sort
+    // short_name server-side (lexicographic "10" < "2", not numeric).
     ustazList = (ustaz || []).sort((a, b) =>
         a.short_name.localeCompare(b.short_name, undefined, { numeric: true, sensitivity: 'base' })
     );
     ustazMap  = Object.fromEntries(ustazList.map(u => [u.id, u]));
-
-    // Load schedule rows for this month
-    const padMonth  = String(currentMonth).padStart(2, '0');
-    const startDate = `${currentYear}-${padMonth}-01`;
-    const lastDay   = lastDayOfMonth(currentYear, currentMonth);
-    const endDate   = `${currentYear}-${padMonth}-${String(lastDay).padStart(2, '0')}`;
-
-    const { data: rows, error: schedErr } = await db
-        .from('schedule')
-        .select('date, cuti_umum, subuh_ustaz_id, maghrib_ustaz_id, subuh_pending, maghrib_pending, subuh_khas, maghrib_khas, subuh_ditangguhkan, maghrib_ditangguhkan')
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('date');
-
-    if (schedErr) {
-        showToast('Gagal memuatkan jadual: ' + schedErr.message, 'error');
-        return;
-    }
 
     // Build schedule map with ustaz objects resolved
     scheduleMap = {};
@@ -260,28 +244,18 @@ async function updateScheduleActions() {
 // (e.g. "Julai 2026") and renders it, or "Belum diterbitkan" if none exists yet.
 async function loadLastPublishedNote(label) {
     const el = document.getElementById('last-published-note');
-    const { data, error } = await db
-        .from('activity_log')
-        .select('created_at, actor_name, actor_email')
-        .eq('action', 'publish')
-        .eq('target_label', label)
-        .order('created_at', { ascending: false })
-        .limit(1);
+    let row = null;
+    try {
+        const out = await kuliahApi('last-published', { params: { label } });
+        row = out.row;
+    } catch {
+        row = null; // informational only, never block the page
+    }
 
-    if (error) { el.style.display = 'none'; return; } // informational only, never block the page
-
-    if (!data || !data.length) {
+    if (!row) {
         el.textContent = 'Bulan ini belum pernah diterbitkan.';
     } else {
-        const row = data[0];
-        let who = row.actor_name;
-        if (!who) {
-            // Log row predates a name being set, or was written before the admin
-            // filled in their name — look up the current name as a fallback so we
-            // never show a raw email address when a name is available.
-            const { data: adminRow } = await db.from('admins').select('name').ilike('email', row.actor_email).single();
-            who = adminRow?.name || row.actor_email;
-        }
+        const who = row.actor_name || row.actor_email;
         el.textContent = `Terakhir diterbitkan pada ${formatDateTimeMY(row.created_at)} (${formatRelativeMY(row.created_at)}) oleh ${who}`;
     }
     el.style.display = 'block';
@@ -355,14 +329,14 @@ async function confirmDuplicate() {
     // Salin Data copies ustaz assignments only — pending/khas/cuti_umum/
     // ditangguhkan are date-specific and intentionally NOT carried forward
     // (ditangguhkan is a per-date incident, same rationale as cuti_umum).
-    const { data: srcRows, error: srcErr } = await db
-        .from('schedule')
-        .select('date, subuh_ustaz_id, maghrib_ustaz_id')
-        .gte('date', srcStart)
-        .lte('date', srcEnd);
-
-    if (srcErr) {
-        showToast('Gagal memuatkan data sumber: ' + srcErr.message, 'error');
+    let srcRows;
+    try {
+        const out = await kuliahApi('schedule', {
+            params: { month: `${src.year}-${padSrcMonth}` },
+        });
+        srcRows = out.rows;
+    } catch (e) {
+        showToast('Gagal memuatkan data sumber: ' + e.message, 'error');
         btn.disabled   = false;
         btn.textContent = 'Salin & Gantikan';
         return;
@@ -393,18 +367,20 @@ async function confirmDuplicate() {
         return;
     }
 
-    const { error: upsertErr } = await db.from('schedule').upsert(upserts, { onConflict: 'date' });
+    try {
+        await kuliahApi('upsert-days', { method: 'POST', body: { rows: upserts } });
+    } catch (e) {
+        showToast('Gagal menyalin data: ' + e.message, 'error');
+        btn.disabled   = false;
+        btn.textContent = 'Salin & Gantikan';
+        return;
+    }
 
     btn.disabled   = false;
     btn.textContent = 'Salin & Gantikan';
 
-    if (upsertErr) {
-        showToast('Gagal menyalin data: ' + upsertErr.message, 'error');
-        return;
-    }
-
     showToast(`Berjaya menyalin ${upserts.length} hari.`, 'success');
-    await logActivity(
+    await neonLog(
         'schedule_duplicate',
         monthLabel(currentYear, currentMonth),
         `${upserts.length} hari disalin dari ${monthLabel(src.year, src.month)} ke ${monthLabel(currentYear, currentMonth)}.`
@@ -445,22 +421,20 @@ async function confirmClear() {
     const endDate   = `${currentYear}-${padMonth}-${String(lastDay).padStart(2, '0')}`;
     const filledCount = countFilledDays(scheduleMap);
 
-    const { error } = await db
-        .from('schedule')
-        .delete()
-        .gte('date', startDate)
-        .lte('date', endDate);
+    try {
+        await kuliahApi('clear', { method: 'POST', body: { start: startDate, end: endDate } });
+    } catch (e) {
+        showToast('Gagal mengosongkan jadual: ' + e.message, 'error');
+        btn.disabled   = false;
+        btn.textContent = 'Kosongkan';
+        return;
+    }
 
     btn.disabled   = false;
     btn.textContent = 'Kosongkan';
 
-    if (error) {
-        showToast('Gagal mengosongkan jadual: ' + error.message, 'error');
-        return;
-    }
-
     showToast('Jadual bulan ini telah dikosongkan.', 'success');
-    await logActivity(
+    await neonLog(
         'schedule_clear',
         monthLabel(currentYear, currentMonth),
         `${filledCount} hari dikosongkan (jadual dipadam).`
@@ -678,59 +652,53 @@ async function saveDay() {
     const cutiText  = hasCuti ? (document.getElementById('cuti-text').value.trim() || null) : null;
     const before    = scheduleMap[editingDate];
 
-    const { error } = await db.from('schedule').upsert(
-        {
-            date:             editingDate,
-            subuh_ustaz_id:   subuhId,
-            maghrib_ustaz_id: maghribId,
-            subuh_pending:    subuhPending,
-            maghrib_pending:  maghribPending,
-            subuh_khas:       subuhKhas,
-            maghrib_khas:     maghribKhas,
-            subuh_ditangguhkan:   subuhDitangguhkan,
-            maghrib_ditangguhkan: maghribDitangguhkan,
-            cuti_umum:        cutiText,
-            updated_at:       new Date().toISOString(),
-        },
-        { onConflict: 'date' }
-    );
+    try {
+        await kuliahApi('day', {
+            method: 'POST',
+            body: {
+                row: {
+                    date: editingDate,
+                    subuh_ustaz_id: subuhId,
+                    maghrib_ustaz_id: maghribId,
+                    subuh_pending: subuhPending,
+                    maghrib_pending: maghribPending,
+                    subuh_khas: subuhKhas,
+                    maghrib_khas: maghribKhas,
+                    subuh_ditangguhkan: subuhDitangguhkan,
+                    maghrib_ditangguhkan: maghribDitangguhkan,
+                    cuti_umum: cutiText,
+                },
+            },
+        });
+    } catch (e) {
+        showToast('Gagal menyimpan: ' + e.message, 'error');
+        saveBtn.disabled  = false;
+        saveBtn.textContent = 'Simpan';
+        return;
+    }
 
     saveBtn.disabled  = false;
     saveBtn.textContent = 'Simpan';
 
-    if (error) {
-        showToast('Gagal menyimpan: ' + error.message, 'error');
-        return;
-    }
-
     showToast('Berjaya disimpan', 'success');
     const diff = buildDayDiffText(before, subuhId, maghribId, cutiText, subuhPending, maghribPending, subuhKhas, maghribKhas, subuhDitangguhkan, maghribDitangguhkan);
-    if (diff) await logActivity('schedule_day_edit', formatDateMY(editingDate), diff);
+    if (diff) await neonLog('schedule_day_edit', formatDateMY(editingDate), diff);
     closeModal();
     await loadMonth();
 }
 
 // ─── Publish ──────────────────────────────────────────────────────────────────
+// Cookie session (Google OAuth via /api/auth) is sent automatically —
+// same-origin fetch includes cookies by default, no header needed.
 async function publishMonth() {
     const btn      = document.getElementById('publish-btn');
     btn.disabled   = true;
     btn.innerHTML  = '<span class="spinner"></span> Menerbitkan...';
 
-    const { data: { session } } = await db.auth.getSession();
-    if (!session) {
-        showToast('Sesi tamat. Sila log masuk semula.', 'error');
-        btn.disabled  = false;
-        btn.textContent = `Terbitkan ${monthLabel(currentYear, currentMonth)}`;
-        return;
-    }
-
     const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
 
     try {
-        const res  = await fetch(`/api/publish?month=${monthStr}`, {
-            method:  'POST',
-            headers: { 'Authorization': `Bearer ${session.access_token}` }
-        });
+        const res  = await fetch(`/api/publish?month=${monthStr}`, { method: 'POST' });
         // Local dev servers (python http.server / Live Server) have no
         // /api/* serverless route — they answer with an HTML error page, not
         // JSON. Parse defensively so that shows a clear message instead of
