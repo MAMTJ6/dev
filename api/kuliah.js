@@ -47,8 +47,11 @@ module.exports = async function handler(req, res) {
       const r = monthRange(req.query.month);
       if (!r) return res.status(400).json({ error: 'bad month' });
       const ulist = await sql`SELECT id, short_name, full_name, tajuk_kuliah, poster_url FROM ustaz`;
-      const sched = await sql`SELECT date, cuti_umum, subuh_ustaz_id, maghrib_ustaz_id, subuh_pending, maghrib_pending, subuh_khas, maghrib_khas, subuh_ditangguhkan, maghrib_ditangguhkan FROM schedule WHERE date >= ${r.start} AND date <= ${r.end} ORDER BY date`;
-      const rows = sched.map(row => ({ ...row, date: dateStr(row.date) }));
+      const schedRaw = await sql`SELECT date, cuti_umum, subuh_ustaz_id, maghrib_ustaz_id, subuh_pending, maghrib_pending, subuh_khas, maghrib_khas, subuh_ditangguhkan, maghrib_ditangguhkan FROM schedule WHERE date >= ${r.start} AND date <= ${r.end} ORDER BY date`;
+      if (!Array.isArray(schedRaw)) {
+        return res.status(500).json({ error: 'debug-shape', details: `typeof=${typeof schedRaw} ctor=${schedRaw?.constructor?.name || '?'} keys=${schedRaw ? Object.keys(schedRaw).slice(0, 12).join(',') : 'null'}` });
+      }
+      const rows = schedRaw.map(row => ({ ...row, date: dateStr(row.date) }));
       return res.status(200).json({ ustaz: ulist, rows });
     }
     // ── GET: full ustaz registry ──
