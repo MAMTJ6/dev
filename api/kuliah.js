@@ -144,6 +144,6 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'unknown action' });
   } catch (e) {
     console.error('/api/kuliah failed:', e);
-    return res.status(500).json({ error: 'server error' });
+    return res.status(500).json({ error: 'server error', details: e.message });
   }
 };
