@@ -6,9 +6,9 @@
 // Needs Node 18+ (global fetch). No npm install. Read-only: never writes to Supabase.
 import { writeFile, mkdir } from 'node:fs/promises';
 
-const URL = process.env.SUPABASE_URL;
-const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!URL || !KEY) {
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars.');
   process.exit(1);
 }
@@ -30,13 +30,13 @@ async function getTable(name) {
   const size = 1000;
   for (;;) {
     const res = await fetch(
-      `${URL}/rest/v1/${name}?select=*&offset=${from}&limit=${size}&order=created_at`,
-      { headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, Accept: 'application/json' } }
+      `${SUPABASE_URL}/rest/v1/${name}?select=*&offset=${from}&limit=${size}&order=created_at`,
+      { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, Accept: 'application/json' } }
     );
     if (!res.ok) {
       // Tables without created_at (e.g. news_settings) reject the order param — retry plain.
-      const retry = await fetch(`${URL}/rest/v1/${name}?select=*&offset=${from}&limit=${size}`, {
-        headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, Accept: 'application/json' },
+      const retry = await fetch(`${SUPABASE_URL}/rest/v1/${name}?select=*&offset=${from}&limit=${size}`, {
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, Accept: 'application/json' },
       });
       if (!retry.ok) throw new Error(`${name}: ${retry.status} ${await retry.text()}`);
       const batch = await retry.json();
