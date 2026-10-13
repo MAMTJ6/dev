@@ -1,323 +1,9 @@
 {
   "months": {
-    "2026-09": {
-      "infoJadual": {
-        "tajukBulan": "BULAN SEPTEMBER 2026",
-        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 27/9/2026"
-      },
-      "senaraiHari": [
-        {
-          "date": "2026-09-01",
-          "subuh": null,
-          "maghrib": null,
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-02",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Ustaz Hairul Azam",
-            "tajuk_kuliah": "Tadabbur ayat-ayat Surah Al-Baqarah",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/07_6.-Ustaz-Hairul-Azam.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-03",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Ustaz Mohd Firdaus Azmy",
-            "tajuk_kuliah": "Tadabbur ayat-ayat Surah Al-Anfal",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/09_8.-Ustaz-Mohd-Firdaus-Azmy.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-04",
-          "subuh": null,
-          "maghrib": null,
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-05",
-          "subuh": null,
-          "maghrib": null,
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-06",
-          "subuh": {
-            "nama_penceramah": "Ustaz Badrul Hisham",
-            "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
-            "poster_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/posters/14-ust-badrul-1789184625268.jpg",
-            "square_url": null
-          },
-          "maghrib": {
-            "nama_penceramah": "Ustaz Amir",
-            "tajuk_kuliah": "a. Kitab Fekah : Syarah Safinah An-Naja; b. Kitab Tasawuf",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/17_16.-Ustaz-Amir.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-07",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Ustaz Hisyamuddin",
-            "tajuk_kuliah": "Nasihat Agama dan Wasiat Iman",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/03_2.-Ustaz-Hisyamuddin.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-08",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Ustaz Anuar Suhaimi",
-            "tajuk_kuliah": "132 Langkah Penyucian Jiwa",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/06_5.-Ustaz-Anuar.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-09",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "YAA Dato' Sri Haji Abdul Rahman",
-            "tajuk_kuliah": "Fekah Kesihatan Dalam Ibadah Dan Sunnah Nabi",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/18_17.-YAA-Dato-Seri-Haji-Abdul-Rahman-bin-Md-Yunos.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-10",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Bacaan Yasiin & Tahlil",
-            "tajuk_kuliah": null,
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/01_0.-bacaan-yasin.png",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-11",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Ustaz Muhammad Fathmi",
-            "tajuk_kuliah": "Syarah Hadis 40 Imam Nawawi",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/11_10.-Ustaz-Fathmi.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-12",
-          "subuh": {
-            "nama_penceramah": "Ustaz Badrul Hisham",
-            "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
-            "poster_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/posters/14-ust-badrul-1789184625268.jpg",
-            "square_url": null
-          },
-          "maghrib": {
-            "nama_penceramah": "Ustaz Nawawi",
-            "tajuk_kuliah": "Ringkasan Riyadhus Solihin",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/16_15.-Ustaz-Nawawi.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-13",
-          "subuh": {
-            "nama_penceramah": "Ustaz Badrul Hisham",
-            "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
-            "poster_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/posters/14-ust-badrul-1789184625268.jpg",
-            "square_url": null
-          },
-          "maghrib": {
-            "nama_penceramah": "Ustaz Amir",
-            "tajuk_kuliah": "a. Kitab Fekah : Syarah Safinah An-Naja; b. Kitab Tasawuf",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/17_16.-Ustaz-Amir.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-14",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Ustaz Hisyamuddin",
-            "tajuk_kuliah": "Nasihat Agama dan Wasiat Iman",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/03_2.-Ustaz-Hisyamuddin.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-15",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Ustaz Shahruwardi",
-            "tajuk_kuliah": "Tuhfah Ar-Raghibin",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/04_3.-Ust-Shahruwardi.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-16",
-          "subuh": null,
-          "maghrib": null,
-          "cuti_umum": "Hari Malaysia"
-        },
-        {
-          "date": "2026-09-17",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Ustaz Muhammad Nazri",
-            "tajuk_kuliah": "Penghayatan Al-Quran",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/10_9.-Ustaz-Muhammad-Nazri.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-18",
-          "subuh": null,
-          "maghrib": null,
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-19",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Ustaz Nawawi",
-            "tajuk_kuliah": "Ringkasan Riyadhus Solihin",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/16_15.-Ustaz-Nawawi.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-20",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Sdr Ahmad Syafiq Muhaimin",
-            "tajuk_kuliah": "Syamail Muhammadiah",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/20_19.-Sdr.-Syafiq.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-21",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Ustaz Ahmad Termizi",
-            "tajuk_kuliah": "Sesi Tajwid & Talaqqi Al-Quran",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/02_1.-Ustaz-Ahmad-Termizi.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-22",
-          "subuh": null,
-          "maghrib": null,
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-23",
-          "subuh": null,
-          "maghrib": null,
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-24",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Tuan Haji Hazarudin",
-            "tajuk_kuliah": "Terjemahan Inti Sari Matan Al-Zubad",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/19_18.-Tuan-Haji-Hazarudin-bin-Haji-Baharudin.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-25",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Ustaz Wahid",
-            "tajuk_kuliah": "Umum & Semasa",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/13_12.-Ustaz-Wahid-Ghaffar.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-26",
-          "subuh": null,
-          "maghrib": null,
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-27",
-          "subuh": {
-            "nama_penceramah": "Ustaz Badrul Hisham",
-            "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
-            "poster_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/posters/14-ust-badrul-1789184625268.jpg",
-            "square_url": null
-          },
-          "maghrib": {
-            "nama_penceramah": "Sdr Ahmad Syafiq Muhaimin",
-            "tajuk_kuliah": "Syamail Muhammadiah",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/20_19.-Sdr.-Syafiq.jpg",
-            "square_url": null,
-            "ditangguhkan": true
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-28",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Ustaz Ahmad Termizi",
-            "tajuk_kuliah": "Sesi Tajwid & Talaqqi Al-Quran",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/02_1.-Ustaz-Ahmad-Termizi.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-29",
-          "subuh": null,
-          "maghrib": null,
-          "cuti_umum": null
-        },
-        {
-          "date": "2026-09-30",
-          "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Ustaz Hairul Azam",
-            "tajuk_kuliah": "Tadabbur ayat-ayat Surah Al-Baqarah",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/07_6.-Ustaz-Hairul-Azam.jpg",
-            "square_url": null
-          },
-          "cuti_umum": null
-        }
-      ]
-    },
     "2026-10": {
       "infoJadual": {
         "tajukBulan": "BULAN OKTOBER 2026",
-        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 23/9/2026"
+        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 13/10/2026"
       },
       "senaraiHari": [
         {
@@ -335,22 +21,22 @@
           "date": "2026-10-02",
           "subuh": null,
           "maghrib": {
-            "nama_penceramah": "Ustaz Nazir",
-            "tajuk_kuliah": "Mukhtasar Tanbih Al-Ghafilin",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/12_11.-Ustaz-Nazir.jpg",
+            "nama_penceramah": "Sdr Ahmad Syafiq Muhaimin",
+            "tajuk_kuliah": "Syamail Muhammadiah",
+            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/20_19.-Sdr.-Syafiq.jpg",
             "square_url": null
           },
           "cuti_umum": null
         },
         {
           "date": "2026-10-03",
-          "subuh": {
-            "nama_penceramah": "Ustaz Badrul Hisham",
-            "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
-            "poster_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/posters/14-ust-badrul-1789184625268.jpg",
+          "subuh": null,
+          "maghrib": {
+            "nama_penceramah": "Ustaz Nawawi",
+            "tajuk_kuliah": "Ringkasan Riyadhus Solihin",
+            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/16_15.-Ustaz-Nawawi.jpg",
             "square_url": null
           },
-          "maghrib": null,
           "cuti_umum": null
         },
         {
@@ -358,7 +44,7 @@
           "subuh": {
             "nama_penceramah": "Ustaz Badrul Hisham",
             "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
-            "poster_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/posters/14-ust-badrul-1789184625268.jpg",
+            "poster_url": "/kuliah/assets/poster-kuliah/14-ust-badrul-1789184625268.jpg",
             "square_url": null
           },
           "maghrib": {
@@ -429,7 +115,7 @@
           "subuh": {
             "nama_penceramah": "Ustaz Badrul Hisham",
             "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
-            "poster_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/posters/14-ust-badrul-1789184625268.jpg",
+            "poster_url": "/kuliah/assets/poster-kuliah/14-ust-badrul-1789184625268.jpg",
             "square_url": null
           },
           "maghrib": {
@@ -442,12 +128,7 @@
         },
         {
           "date": "2026-10-11",
-          "subuh": {
-            "nama_penceramah": "Ustaz Badrul Hisham",
-            "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
-            "poster_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/posters/14-ust-badrul-1789184625268.jpg",
-            "square_url": null
-          },
+          "subuh": null,
           "maghrib": {
             "nama_penceramah": "Ustaz Amir",
             "tajuk_kuliah": "a. Kitab Fekah : Syarah Safinah An-Naja; b. Kitab Tasawuf",
@@ -506,7 +187,7 @@
           "maghrib": {
             "nama_penceramah": "Ustaz Anas Amri Bin Shahir",
             "tajuk_kuliah": "Sesi Pencerahan Fiqh Al-Watan",
-            "poster_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/posters/100-ceramah-khas-1790144604569.jpeg",
+            "poster_url": "/kuliah/assets/poster-kuliah/100-ceramah-khas-1790144604569.jpeg",
             "square_url": null,
             "khas": true
           },
@@ -517,7 +198,7 @@
           "subuh": {
             "nama_penceramah": "Ustaz Badrul Hisham",
             "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
-            "poster_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/posters/14-ust-badrul-1789184625268.jpg",
+            "poster_url": "/kuliah/assets/poster-kuliah/14-ust-badrul-1789184625268.jpg",
             "square_url": null
           },
           "maghrib": {
@@ -533,7 +214,7 @@
           "subuh": {
             "nama_penceramah": "Ustaz Badrul Hisham",
             "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
-            "poster_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/posters/14-ust-badrul-1789184625268.jpg",
+            "poster_url": "/kuliah/assets/poster-kuliah/14-ust-badrul-1789184625268.jpg",
             "square_url": null
           },
           "maghrib": {
@@ -618,12 +299,7 @@
         {
           "date": "2026-10-25",
           "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Sdr Ahmad Syafiq Muhaimin",
-            "tajuk_kuliah": "Syamail Muhammadiah",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/20_19.-Sdr.-Syafiq.jpg",
-            "square_url": null
-          },
+          "maghrib": null,
           "cuti_umum": null
         },
         {
@@ -686,7 +362,7 @@
           "subuh": {
             "nama_penceramah": "Ustaz Badrul Hisham",
             "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
-            "poster_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/posters/14-ust-badrul-1789184625268.jpg",
+            "poster_url": "/kuliah/assets/poster-kuliah/14-ust-badrul-1789184625268.jpg",
             "square_url": null
           },
           "maghrib": null,
