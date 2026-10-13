@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
     // ── 2. Fetch ustaz registry from Neon ───────────────────────────────────
     let ustazList;
     try {
-        ustazList = await sql`SELECT id, full_name, short_name, jawatan, tajuk_kuliah, profile_url, is_public FROM ustaz`;
+        ustazList = await sql()`SELECT id, full_name, short_name, jawatan, tajuk_kuliah, profile_url, is_public FROM ustaz`;
     } catch (e) {
         return res.status(500).json({ error: 'Failed to fetch ustaz from Neon', details: e.message });
     }
@@ -106,7 +106,7 @@ module.exports = async function handler(req, res) {
     const updateData = await updateRes.json();
 
     try {
-        await sql`INSERT INTO activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${admin.email}, ${admin.name || null}, 'publish_ustaz', 'penceramah', ${penceramah.length + ' penceramah diterbitkan.'})`;
+        await sql()`INSERT INTO activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${admin.email}, ${admin.name || null}, 'publish_ustaz', 'penceramah', ${penceramah.length + ' penceramah diterbitkan.'})`;
     } catch (e) {
         console.error('activity_log insert failed:', e);
     }
@@ -117,3 +117,4 @@ module.exports = async function handler(req, res) {
         published: { count: penceramah.length },
     });
 };
+

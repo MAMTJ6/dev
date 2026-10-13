@@ -46,24 +46,21 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET' && action === 'schedule') {
       const r = monthRange(req.query.month);
       if (!r) return res.status(400).json({ error: 'bad month' });
-      const ulist = await sql`SELECT id, short_name, full_name, tajuk_kuliah, poster_url FROM ustaz`;
-      const schedRaw = await sql`SELECT date, cuti_umum, subuh_ustaz_id, maghrib_ustaz_id, subuh_pending, maghrib_pending, subuh_khas, maghrib_khas, subuh_ditangguhkan, maghrib_ditangguhkan FROM schedule WHERE date >= ${r.start} AND date <= ${r.end} ORDER BY date`;
-      if (!Array.isArray(schedRaw)) {
-        return res.status(500).json({ error: 'debug-shape', details: `typeof=${typeof schedRaw} ctor=${schedRaw?.constructor?.name || '?'} keys=${schedRaw ? Object.keys(schedRaw).slice(0, 12).join(',') : 'null'}` });
-      }
+      const ulist = await sql()`SELECT id, short_name, full_name, tajuk_kuliah, poster_url FROM ustaz`;
+      const schedRaw = await sql()`SELECT date, cuti_umum, subuh_ustaz_id, maghrib_ustaz_id, subuh_pending, maghrib_pending, subuh_khas, maghrib_khas, subuh_ditangguhkan, maghrib_ditangguhkan FROM schedule WHERE date >= ${r.start} AND date <= ${r.end} ORDER BY date`;
       const rows = schedRaw.map(row => ({ ...row, date: dateStr(row.date) }));
       return res.status(200).json({ ustaz: ulist, rows });
     }
     // ── GET: full ustaz registry ──
     if (req.method === 'GET' && action === 'ustaz') {
-      const rows = await sql`SELECT id, short_name, full_name, tajuk_kuliah, poster_url, square_url, jawatan, profile_url, is_public FROM ustaz`;
+      const rows = await sql()`SELECT id, short_name, full_name, tajuk_kuliah, poster_url, square_url, jawatan, profile_url, is_public FROM ustaz`;
       return res.status(200).json({ ustaz: rows });
     }
     // ── GET: last publish note (kuliah month publish, or publish_ustaz) ──
     if (req.method === 'GET' && action === 'last-published') {
       const label = String(req.query.label || '');
       const logAction = req.query.logAction === 'publish_ustaz' ? 'publish_ustaz' : 'publish';
-      const rows = await sql`SELECT created_at, actor_name, actor_email FROM activity_log WHERE action = ${logAction} AND target_label = ${label} ORDER BY created_at DESC LIMIT 1`;
+      const rows = await sql()`SELECT created_at, actor_name, actor_email FROM activity_log WHERE action = ${logAction} AND target_label = ${label} ORDER BY created_at DESC LIMIT 1`;
       return res.status(200).json({ row: rows[0] || null });
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -73,7 +70,7 @@ module.exports = async function handler(req, res) {
     if (action === 'day') {
       const r = b.row || {};
       if (!/^\d{4}-\d{2}-\d{2}$/.test(r.date || '')) return res.status(400).json({ error: 'bad date' });
-      await sql`INSERT INTO schedule (date, subuh_ustaz_id, maghrib_ustaz_id, subuh_pending, maghrib_pending, subuh_khas, maghrib_khas, subuh_ditangguhkan, maghrib_ditangguhkan, cuti_umum, updated_at)
+      await sql()`INSERT INTO schedule (date, subuh_ustaz_id, maghrib_ustaz_id, subuh_pending, maghrib_pending, subuh_khas, maghrib_khas, subuh_ditangguhkan, maghrib_ditangguhkan, cuti_umum, updated_at)
         VALUES (${r.date}, ${r.subuh_ustaz_id || null}, ${r.maghrib_ustaz_id || null}, ${!!r.subuh_pending}, ${!!r.maghrib_pending}, ${!!r.subuh_khas}, ${!!r.maghrib_khas}, ${!!r.subuh_ditangguhkan}, ${!!r.maghrib_ditangguhkan}, ${r.cuti_umum || null}, NOW())
         ON CONFLICT (date) DO UPDATE SET subuh_ustaz_id = EXCLUDED.subuh_ustaz_id, maghrib_ustaz_id = EXCLUDED.maghrib_ustaz_id, subuh_pending = EXCLUDED.subuh_pending, maghrib_pending = EXCLUDED.maghrib_pending, subuh_khas = EXCLUDED.subuh_khas, maghrib_khas = EXCLUDED.maghrib_khas, subuh_ditangguhkan = EXCLUDED.subuh_ditangguhkan, maghrib_ditangguhkan = EXCLUDED.maghrib_ditangguhkan, cuti_umum = EXCLUDED.cuti_umum, updated_at = NOW()`;
       return res.status(200).json({ ok: true });
@@ -83,7 +80,7 @@ module.exports = async function handler(req, res) {
       const rows = Array.isArray(b.rows) ? b.rows : [];
       if (!rows.length) return res.status(400).json({ error: 'empty' });
       for (const r of rows) {
-        await sql`INSERT INTO schedule (date, subuh_ustaz_id, maghrib_ustaz_id, updated_at)
+        await sql()`INSERT INTO schedule (date, subuh_ustaz_id, maghrib_ustaz_id, updated_at)
           VALUES (${r.date}, ${r.subuh_ustaz_id || null}, ${r.maghrib_ustaz_id || null}, NOW())
           ON CONFLICT (date) DO UPDATE SET subuh_ustaz_id = EXCLUDED.subuh_ustaz_id, maghrib_ustaz_id = EXCLUDED.maghrib_ustaz_id, updated_at = NOW()`;
       }
@@ -93,7 +90,7 @@ module.exports = async function handler(req, res) {
     if (action === 'clear') {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(b.start || '') || !/^\d{4}-\d{2}-\d{2}$/.test(b.end || ''))
         return res.status(400).json({ error: 'bad range' });
-      await sql`DELETE FROM schedule WHERE date >= ${b.start} AND date <= ${b.end}`;
+      await sql()`DELETE FROM schedule WHERE date >= ${b.start} AND date <= ${b.end}`;
       return res.status(200).json({ ok: true });
     }
     // ── POST: ustaz save ──
@@ -102,9 +99,9 @@ module.exports = async function handler(req, res) {
       if (!r.short_name || !r.full_name) return res.status(400).json({ error: 'short_name + full_name required' });
       try {
         if (r.id) {
-          await sql`UPDATE ustaz SET short_name = ${r.short_name}, full_name = ${r.full_name}, tajuk_kuliah = ${r.tajuk_kuliah || null}, poster_url = ${r.poster_url || null}, square_url = ${r.square_url || null}, jawatan = ${r.jawatan || null}, profile_url = ${r.profile_url || null}, is_public = ${r.is_public !== false}, updated_at = NOW() WHERE id = ${r.id}`;
+          await sql()`UPDATE ustaz SET short_name = ${r.short_name}, full_name = ${r.full_name}, tajuk_kuliah = ${r.tajuk_kuliah || null}, poster_url = ${r.poster_url || null}, square_url = ${r.square_url || null}, jawatan = ${r.jawatan || null}, profile_url = ${r.profile_url || null}, is_public = ${r.is_public !== false}, updated_at = NOW() WHERE id = ${r.id}`;
         } else {
-          await sql`INSERT INTO ustaz (short_name, full_name, tajuk_kuliah, poster_url, square_url, jawatan, profile_url, is_public) VALUES (${r.short_name}, ${r.full_name}, ${r.tajuk_kuliah || null}, ${r.poster_url || null}, ${r.square_url || null}, ${r.jawatan || null}, ${r.profile_url || null}, ${r.is_public !== false})`;
+          await sql()`INSERT INTO ustaz (short_name, full_name, tajuk_kuliah, poster_url, square_url, jawatan, profile_url, is_public) VALUES (${r.short_name}, ${r.full_name}, ${r.tajuk_kuliah || null}, ${r.poster_url || null}, ${r.square_url || null}, ${r.jawatan || null}, ${r.profile_url || null}, ${r.is_public !== false})`;
         }
       } catch (e) {
         if (String(e.message || '').includes('duplicate') || String(e.code) === '23505')
@@ -116,10 +113,10 @@ module.exports = async function handler(req, res) {
     // ── POST: ustaz delete (blocked if referenced) ──
     if (action === 'ustaz-delete') {
       if (!b.id) return res.status(400).json({ error: 'missing id' });
-      const refs = await sql`SELECT COUNT(*)::int AS n FROM schedule WHERE subuh_ustaz_id = ${b.id} OR maghrib_ustaz_id = ${b.id}`;
+      const refs = await sql()`SELECT COUNT(*)::int AS n FROM schedule WHERE subuh_ustaz_id = ${b.id} OR maghrib_ustaz_id = ${b.id}`;
       if (b.checkOnly) return res.status(200).json({ ok: true, count: refs[0].n });
       if (refs[0].n > 0) return res.status(409).json({ error: 'referenced', count: refs[0].n });
-      await sql`DELETE FROM ustaz WHERE id = ${b.id}`;
+      await sql()`DELETE FROM ustaz WHERE id = ${b.id}`;
       return res.status(200).json({ ok: true });
     }
     // ── POST: activity log (never fails the caller) ──
@@ -133,11 +130,11 @@ module.exports = async function handler(req, res) {
       };
       try {
         if (b.table === 'infaq_activity_log') {
-          await sql`INSERT INTO infaq_activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${entry.email}, ${entry.name}, ${entry.act}, ${entry.label}, ${entry.detail})`;
+          await sql()`INSERT INTO infaq_activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${entry.email}, ${entry.name}, ${entry.act}, ${entry.label}, ${entry.detail})`;
         } else if (b.table === 'news_activity_log') {
-          await sql`INSERT INTO news_activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${entry.email}, ${entry.name}, ${entry.act}, ${entry.label}, ${entry.detail})`;
+          await sql()`INSERT INTO news_activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${entry.email}, ${entry.name}, ${entry.act}, ${entry.label}, ${entry.detail})`;
         } else {
-          await sql`INSERT INTO activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${entry.email}, ${entry.name}, ${entry.act}, ${entry.label}, ${entry.detail})`;
+          await sql()`INSERT INTO activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${entry.email}, ${entry.name}, ${entry.act}, ${entry.label}, ${entry.detail})`;
         }
       } catch (e) {
         console.error('log insert failed:', e.message);
@@ -150,3 +147,4 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'server error', details: e.message });
   }
 };
+

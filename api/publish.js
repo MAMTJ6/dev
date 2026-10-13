@@ -132,8 +132,8 @@ module.exports = async function handler(req, res) {
     // ── 3. Fetch ustaz + schedule from Neon ─────────────────────────────────
     let ustazList, scheduleRows;
     try {
-        ustazList = await sql`SELECT id, full_name, tajuk_kuliah, poster_url, square_url FROM ustaz`;
-        scheduleRows = await sql`SELECT date, cuti_umum, subuh_ustaz_id, maghrib_ustaz_id, subuh_pending, maghrib_pending, subuh_khas, maghrib_khas, subuh_ditangguhkan, maghrib_ditangguhkan FROM schedule WHERE date >= ${startDate} AND date <= ${endDate} ORDER BY date`;
+        ustazList = await sql()`SELECT id, full_name, tajuk_kuliah, poster_url, square_url FROM ustaz`;
+        scheduleRows = await sql()`SELECT date, cuti_umum, subuh_ustaz_id, maghrib_ustaz_id, subuh_pending, maghrib_pending, subuh_khas, maghrib_khas, subuh_ditangguhkan, maghrib_ditangguhkan FROM schedule WHERE date >= ${startDate} AND date <= ${endDate} ORDER BY date`;
     } catch (e) {
         return res.status(500).json({ error: 'Failed to fetch data from Neon', details: e.message });
     }
@@ -240,7 +240,7 @@ module.exports = async function handler(req, res) {
     const updateData = await updateRes.json();
 
     try {
-        await sql`INSERT INTO activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${actorEmail}, ${actorName}, 'publish', ${monthLabelFromKey(month)}, ${senaraiHari.length + ' hari diterbitkan.'})`;
+        await sql()`INSERT INTO activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${actorEmail}, ${actorName}, 'publish', ${monthLabelFromKey(month)}, ${senaraiHari.length + ' hari diterbitkan.'})`;
     } catch (e) {
         console.error('activity_log insert failed:', e); // never blocks the publish response
     }
@@ -258,3 +258,4 @@ module.exports.inferMonthKeyFromTajuk       = inferMonthKeyFromTajuk;
 module.exports.buildMonthsStoreFromExisting = buildMonthsStoreFromExisting;
 module.exports.mergeAndPruneMonthsStore     = mergeAndPruneMonthsStore;
 module.exports.monthLabelFromKey            = monthLabelFromKey;
+
