@@ -1,0 +1,9 @@
+{
+  "name": "mamtj6-dev",
+  "private": true,
+  "version": "1.0.0",
+  "description": "MAMTJ6 mosque multimedia + admin CMS (static + Vercel serverless, Neon Postgres)",
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.0"
+  }
+}
