@@ -30,7 +30,7 @@ const {
     buildParentListings,
     extractFridayLink,
     extractDateTitle,
-} = require('./publish-khutbah.js');
+} = require('../api/publish-khutbah.js');
 
 let passed = 0, failed = 0;
 function test(name, fn) {

@@ -22,7 +22,7 @@ const {
     isActiveNow,
     buildAnnouncementsJson,
     buildMovingTextJson,
-} = require('./publish-news.js');
+} = require('../api/publish-news.js');
 
 let passed = 0, failed = 0;
 function test(name, fn) {
