@@ -18,8 +18,7 @@ const USTAZ_COLS = 'id, short_name, full_name, tajuk_kuliah, poster_url, square_
 const SCHED_COLS =
   'date, cuti_umum, subuh_ustaz_id, maghrib_ustaz_id, subuh_pending, maghrib_pending, subuh_khas, maghrib_khas, subuh_ditangguhkan, maghrib_ditangguhkan';
 
-function monthRange(month) {
-  const m = /^(\d{4})-(\d{2})$/.exec(month || '');
+function monthRange(month) {  const m = /^(\d{4})-(\d{2})$/.exec(month || '');
   if (!m) return null;
   const y = +m[1];
   const mo = +m[2];
@@ -27,6 +26,13 @@ function monthRange(month) {
   const last = new Date(y, mo, 0).getDate();
   const p = String(mo).padStart(2, '0');
   return { start: `${m[1]}-${p}-01`, end: `${m[1]}-${p}-${String(last).padStart(2, '0')}` };
+}
+
+// Neon may return DATE as a Date object (serializes to full ISO datetime).
+// Frontend keys scheduleMap by YYYY-MM-DD, so normalize here.
+function dateStr(d) {
+  if (d instanceof Date) return d.toISOString().slice(0, 10);
+  return String(d).slice(0, 10);
 }
 
 module.exports = async function handler(req, res) {
@@ -41,7 +47,8 @@ module.exports = async function handler(req, res) {
       const r = monthRange(req.query.month);
       if (!r) return res.status(400).json({ error: 'bad month' });
       const ulist = await sql`SELECT id, short_name, full_name, tajuk_kuliah, poster_url FROM ustaz`;
-      const rows = await sql`SELECT date, cuti_umum, subuh_ustaz_id, maghrib_ustaz_id, subuh_pending, maghrib_pending, subuh_khas, maghrib_khas, subuh_ditangguhkan, maghrib_ditangguhkan FROM schedule WHERE date >= ${r.start} AND date <= ${r.end} ORDER BY date`;
+      const sched = await sql`SELECT date, cuti_umum, subuh_ustaz_id, maghrib_ustaz_id, subuh_pending, maghrib_pending, subuh_khas, maghrib_khas, subuh_ditangguhkan, maghrib_ditangguhkan FROM schedule WHERE date >= ${r.start} AND date <= ${r.end} ORDER BY date`;
+      const rows = sched.map(row => ({ ...row, date: dateStr(row.date) }));
       return res.status(200).json({ ustaz: ulist, rows });
     }
     // ── GET: full ustaz registry ──
