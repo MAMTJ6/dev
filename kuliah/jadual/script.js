@@ -619,10 +619,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const monthData = jsonData.months?.[monthKey];
     const senaraiHari = monthData?.senaraiHari ?? [];
 
-    // 3. Footer update info
+    // 3. Footer update info — date always visible; full timestamp on
+    // desktop hover (title tooltip), inline on touch devices (no hover).
     const updateInfoEl = document.getElementById('update-info');
     if (updateInfoEl) {
-        updateInfoEl.textContent = monthData?.infoJadual?.tarikhKemasKini || '';
+        const info = monthData?.infoJadual;
+        const masa = info?.kemaskiniMasa || '';
+        updateInfoEl.textContent = info?.tarikhKemasKini || '';
+        if (masa) {
+            const timePart = masa.split(',').slice(1).join(',').trim(); // "2:35 PTG"
+            updateInfoEl.title = `Dikemaskini: ${masa}`;
+            if (timePart && window.matchMedia('(pointer: coarse)').matches) {
+                updateInfoEl.textContent += `, ${timePart}`;
+            }
+        } else {
+            updateInfoEl.removeAttribute('title');
+        }
     }
 
     // 4. Schedule title — always reflects the requested month, not the published data

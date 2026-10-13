@@ -144,6 +144,13 @@ module.exports = async function handler(req, res) {
     const now        = new Date();
     const tarikhKemasKini =
         `*Dikemaskini oleh Biro Dakwah pada ${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
+    // Full date+time stamp for the public jadual footer (hover on desktop,
+    // inline on mobile). Separate field — tarikhKemasKini stays untouched
+    // for paparan/ and other existing readers.
+    const myt        = new Date(Date.now() + MYT_OFFSET_MS);
+    const mytH       = myt.getUTCHours();
+    const kemaskiniMasa =
+        `${myt.getUTCDate()}/${myt.getUTCMonth() + 1}/${myt.getUTCFullYear()}, ${mytH % 12 || 12}:${String(myt.getUTCMinutes()).padStart(2, '0')} ${mytH < 12 ? 'PG' : 'PTG'}`;
 
     const senaraiHari = scheduleRows.map(row => {
         const subuhUstaz   = row.subuh_ustaz_id   ? ustazMap[row.subuh_ustaz_id]   : null;
@@ -211,7 +218,7 @@ module.exports = async function handler(req, res) {
 
     monthsStore = mergeAndPruneMonthsStore(
         monthsStore, month,
-        { infoJadual: { tajukBulan, tarikhKemasKini }, senaraiHari },
+        { infoJadual: { tajukBulan, tarikhKemasKini, kemaskiniMasa }, senaraiHari },
         realCurrentKey, realNextKey
     );
 
