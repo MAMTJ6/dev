@@ -199,10 +199,14 @@ module.exports = async function handler(req, res) {
 
     let currentSha;
     let monthsStore = {};
+    let existingStr = null;
     if (contentsRes.ok) {
         const fileData = await contentsRes.json();
         currentSha  = fileData.sha;
-        monthsStore = buildMonthsStoreFromExisting(fileData.content);
+        if (fileData.content) {
+            existingStr = Buffer.from(fileData.content, 'base64').toString('utf8');
+            monthsStore = buildMonthsStoreFromExisting(fileData.content);
+        }
     }
 
     monthsStore = mergeAndPruneMonthsStore(
@@ -212,6 +216,16 @@ module.exports = async function handler(req, res) {
     );
 
     const jsonContent = JSON.stringify({ months: monthsStore }, null, 2);
+
+    // Skip empty commits when nothing changed (same as publish-ustaz/publish-news).
+    if (existingStr === jsonContent) {
+        return res.status(200).json({
+            success: true,
+            skipped: true,
+            published: { month, rows: senaraiHari.length, tajukBulan },
+            months: Object.keys(monthsStore),
+        });
+    }
 
     // Commit the new content (create if no SHA, update if SHA exists)
     const commitBody = {
