@@ -57,6 +57,32 @@ async function neonLog(action, targetLabel, detail, table) {
   }
 }
 
+// Identity/admin API (Neon, via /api/auth?action=... cookie session).
+// users / save-user / delete-user / logs — super-admin only, server-enforced.
+async function authApi(action, { method = 'GET', params = {}, body = null } = {}) {
+  const q = new URLSearchParams({ action, ...params }).toString();
+  const res = await fetch(`/api/auth?${q}`, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : null,
+  });
+  const text = await res.text();
+  let data = null;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = null;
+  }
+  if (!res.ok) {
+    if (res.status === 401) {
+      window.location.replace('/api/auth?action=login&next=' + encodeURIComponent(window.location.pathname));
+      throw new Error('sesi tamat');
+    }
+    throw new Error((data && data.error) || res.statusText);
+  }
+  return data;
+}
+
 // Upload one image File to the repo via /api/upload. Returns repo path.
 async function uploadImage(folder, file) {
   const dataUrl = await new Promise((resolve, reject) => {

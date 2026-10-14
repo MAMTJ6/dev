@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Static website for Masjid Al-Mukhlisin Taman Jaya 6 (MAMTJ6) — a Malaysian mosque's digital presence. Contains multiple sub-projects: lecture schedule system, Islamic calendar, digital signage, and utility tools. All content is primarily in Malay (Bahasa Melayu). Hosted via Vercel at `dev.mamtj6.com` (and other custom domains per sub-project, e.g. `multimedia.mamtj6.com` for `calendar/hijri/`).
+Static website for Masjid Al-Mukhlisin Taman Jaya 6 (MAMTJ6) — a Malaysian mosque's digital presence. Contains multiple sub-projects: lecture schedule system, Islamic calendar, digital signage, and utility tools. All content is primarily in Malay (Bahasa Melayu). Hosted via Vercel at `dev.mamtj6.com`.
 
 **`kuliah/` folder history:** as of 2026-07-14, `kuliah/admin/` and `kuliah/jadual/` are the Supabase-backed system (formerly at `kuliah3/`) — this is now the official lecture-schedule system. The older Google-Sheets-backed v15.4 system that used to live at `kuliah/jadual/` moved to `kuliah3/jadual/` (plus `kuliah3/kuliah(beta)/`), kept archived and fully working as a live fallback/reference. `kuliah/data/`, `kuliah/paparan/`, `kuliah/assets/`, `kuliah/gscript/` were untouched by that move — shared infrastructure, unmoved throughout. **As of 2026-07-19, `kuliah/admin/` moved again, to root `admin/`** (see `admin/CLAUDE.md`, `admin/plan.md`) — it's now a multi-module hub, not kuliah-specific. Old `/kuliah/admin/...` URLs redirect to `/admin/...` via zero-JS stubs left in place.
 

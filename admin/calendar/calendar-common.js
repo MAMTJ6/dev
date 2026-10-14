@@ -1,5 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared across admin/calendar/*.js — permission gate + Terbitkan plumbing.
+// Neon version (2026-10-14): cookie session (no Bearer), log via neonLog()
+// to calendar_activity_log, last-published note via /api/kuliah reader.
+// Requires /admin/kuliah/kuliah-api.js loaded first (shared generic helper).
 // Same shape as admin/khutbah/khutbah-common.js.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -7,27 +10,26 @@ async function requireCalendarAccess() {
     return requireModuleAccess('kalendar');
 }
 
-// POST /api/publish-events with the admin's session token + full events array.
+// POST /api/publish-events with the full events array (cookie session).
 // The endpoint validates, sorts, writes lastUpdated, pushes to GitHub, and
 // logs to calendar_activity_log server-side.
 async function publishCalendarEvents(events, btnId) {
     const btn = btnId ? document.getElementById(btnId) : null;
-    const session = (await db.auth.getSession()).data.session;
-    if (!session) { showToast('Sesi tamat. Sila log masuk semula.', 'error'); return null; }
     if (btn) { btn.disabled = true; btn.textContent = 'Menerbitkan...'; }
     try {
         const res = await fetch('/api/publish-events', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`,
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ events }),
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok || json.success === false) throw new Error(json.message || json.error || `HTTP ${res.status}`);
+        if (res.status === 401) {
+            window.location.replace('/api/auth?action=login&next=' + encodeURIComponent(window.location.pathname));
+            return null;
+        }
         showToast('Berjaya diterbitkan.', 'success');
-        logActivity('publish_calendar', `${events.length} acara`, json.lastUpdated || '', 'calendar_activity_log');
+        neonLog('publish_calendar', `${events.length} acara`, json.lastUpdated || '', 'calendar_activity_log');
         return json;
     } catch (e) {
         console.error('publishCalendarEvents failed:', e);
@@ -41,11 +43,14 @@ async function publishCalendarEvents(events, btnId) {
 async function loadLastPublishedCalendarNote(elId) {
     const el = document.getElementById(elId);
     if (!el) return;
-    const { data, error } = await db.from('calendar_activity_log')
-        .select('created_at, target_label, detail')
-        .eq('action', 'publish_calendar')
-        .order('created_at', { ascending: false })
-        .limit(1);
-    if (error || !data || !data.length) { el.textContent = 'Belum pernah diterbitkan.'; return; }
-    el.textContent = `Terakhir diterbitkan: ${formatDateTimeMY(data[0].created_at)} — ${data[0].target_label || ''}`;
+    try {
+        const out = await kuliahApi('last-published', {
+            params: { table: 'calendar_activity_log', logAction: 'publish_calendar' },
+        });
+        const row = out && out.row;
+        if (!row) { el.textContent = 'Belum pernah diterbitkan.'; return; }
+        el.textContent = `Terakhir diterbitkan: ${formatDateTimeMY(row.created_at)} — ${row.target_label || ''}`;
+    } catch (e) {
+        el.textContent = 'Belum pernah diterbitkan.';
+    }
 }

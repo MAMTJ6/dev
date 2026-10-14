@@ -56,11 +56,54 @@ module.exports = async function handler(req, res) {
       const rows = await sql()`SELECT id, short_name, full_name, tajuk_kuliah, poster_url, square_url, jawatan, profile_url, is_public FROM ustaz`;
       return res.status(200).json({ ustaz: rows });
     }
-    // ── GET: last publish note (kuliah month publish, or publish_ustaz) ──
+    // ── GET: last publish note (kuliah month publish, publish_ustaz, or any
+    // module log table via ?table= — calendar/infaq/news/staff/khutbah share
+    // this reader so their pages don't need direct DB access).
+    // Params: label (target_label match, '' = latest of action),
+    //   logAction (activity_log action name, default 'publish'),
+    //   table (whitelist below, default 'activity_log').
     if (req.method === 'GET' && action === 'last-published') {
       const label = String(req.query.label || '');
-      const logAction = req.query.logAction === 'publish_ustaz' ? 'publish_ustaz' : 'publish';
-      const rows = await sql()`SELECT created_at, actor_name, actor_email FROM activity_log WHERE action = ${logAction} AND target_label = ${label} ORDER BY created_at DESC LIMIT 1`;
+      const logAction = req.query.logAction ? String(req.query.logAction) : 'publish';
+      const LOG_TABLES = new Set([
+        'activity_log',
+        'calendar_activity_log',
+        'infaq_activity_log',
+        'news_activity_log',
+        'staff_activity_log',
+        'khutbah_activity_log',
+      ]);
+      const logTable = LOG_TABLES.has(String(req.query.table || '')) ? String(req.query.table) : 'activity_log';
+      let rows;
+      if (label) {
+        if (logTable === 'activity_log') {
+          rows = await sql()`SELECT created_at, actor_name, actor_email, target_label, detail FROM activity_log WHERE action = ${logAction} AND target_label = ${label} ORDER BY created_at DESC LIMIT 1`;
+        } else if (logTable === 'calendar_activity_log') {
+          rows = await sql()`SELECT created_at, actor_name, actor_email, target_label, detail FROM calendar_activity_log WHERE action = ${logAction} AND target_label = ${label} ORDER BY created_at DESC LIMIT 1`;
+        } else if (logTable === 'infaq_activity_log') {
+          rows = await sql()`SELECT created_at, actor_name, actor_email, target_label, detail FROM infaq_activity_log WHERE action = ${logAction} AND target_label = ${label} ORDER BY created_at DESC LIMIT 1`;
+        } else if (logTable === 'news_activity_log') {
+          rows = await sql()`SELECT created_at, actor_name, actor_email, target_label, detail FROM news_activity_log WHERE action = ${logAction} AND target_label = ${label} ORDER BY created_at DESC LIMIT 1`;
+        } else if (logTable === 'staff_activity_log') {
+          rows = await sql()`SELECT created_at, actor_name, actor_email, target_label, detail FROM staff_activity_log WHERE action = ${logAction} AND target_label = ${label} ORDER BY created_at DESC LIMIT 1`;
+        } else {
+          rows = await sql()`SELECT created_at, actor_name, actor_email, target_label, detail FROM khutbah_activity_log WHERE action = ${logAction} AND target_label = ${label} ORDER BY created_at DESC LIMIT 1`;
+        }
+      } else {
+        if (logTable === 'activity_log') {
+          rows = await sql()`SELECT created_at, actor_name, actor_email, target_label, detail FROM activity_log WHERE action = ${logAction} ORDER BY created_at DESC LIMIT 1`;
+        } else if (logTable === 'calendar_activity_log') {
+          rows = await sql()`SELECT created_at, actor_name, actor_email, target_label, detail FROM calendar_activity_log WHERE action = ${logAction} ORDER BY created_at DESC LIMIT 1`;
+        } else if (logTable === 'infaq_activity_log') {
+          rows = await sql()`SELECT created_at, actor_name, actor_email, target_label, detail FROM infaq_activity_log WHERE action = ${logAction} ORDER BY created_at DESC LIMIT 1`;
+        } else if (logTable === 'news_activity_log') {
+          rows = await sql()`SELECT created_at, actor_name, actor_email, target_label, detail FROM news_activity_log WHERE action = ${logAction} ORDER BY created_at DESC LIMIT 1`;
+        } else if (logTable === 'staff_activity_log') {
+          rows = await sql()`SELECT created_at, actor_name, actor_email, target_label, detail FROM staff_activity_log WHERE action = ${logAction} ORDER BY created_at DESC LIMIT 1`;
+        } else {
+          rows = await sql()`SELECT created_at, actor_name, actor_email, target_label, detail FROM khutbah_activity_log WHERE action = ${logAction} ORDER BY created_at DESC LIMIT 1`;
+        }
+      }
       return res.status(200).json({ row: rows[0] || null });
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -133,6 +176,12 @@ module.exports = async function handler(req, res) {
           await sql()`INSERT INTO infaq_activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${entry.email}, ${entry.name}, ${entry.act}, ${entry.label}, ${entry.detail})`;
         } else if (b.table === 'news_activity_log') {
           await sql()`INSERT INTO news_activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${entry.email}, ${entry.name}, ${entry.act}, ${entry.label}, ${entry.detail})`;
+        } else if (b.table === 'calendar_activity_log') {
+          await sql()`INSERT INTO calendar_activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${entry.email}, ${entry.name}, ${entry.act}, ${entry.label}, ${entry.detail})`;
+        } else if (b.table === 'staff_activity_log') {
+          await sql()`INSERT INTO staff_activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${entry.email}, ${entry.name}, ${entry.act}, ${entry.label}, ${entry.detail})`;
+        } else if (b.table === 'khutbah_activity_log') {
+          await sql()`INSERT INTO khutbah_activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${entry.email}, ${entry.name}, ${entry.act}, ${entry.label}, ${entry.detail})`;
         } else {
           await sql()`INSERT INTO activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${entry.email}, ${entry.name}, ${entry.act}, ${entry.label}, ${entry.detail})`;
         }

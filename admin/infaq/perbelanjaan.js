@@ -8,7 +8,7 @@ let deletingId   = null;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 (async () => {
-    const session = await requireAuth();
+    const session = await requireKuliahAuth();
     if (!session) return;
     if (!(await requireInfaqAccess())) return;
     const canWrite = canWriteModule('infaq');
@@ -24,18 +24,15 @@ async function loadRows() {
     const tbody = document.getElementById('expense-tbody');
     tbody.innerHTML = '<tr><td colspan="3" class="state-cell">Memuatkan...</td></tr>';
 
-    const { data, error } = await db
-        .from('infaq_perbelanjaan_bulanan')
-        .select('*')
-        .order('tahun', { ascending: false })
-        .order('bulan', { ascending: false });
-
-    if (error) {
-        tbody.innerHTML = `<tr><td colspan="3" class="state-cell">Ralat: ${escapeHtml(error.message)}</td></tr>`;
+    let out;
+    try {
+        out = await infaqApi('list-perbelanjaan');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="3" class="state-cell">Ralat: ${escapeHtml(e.message)}</td></tr>`;
         return;
     }
 
-    allRows = data || [];
+    allRows = out.rows || [];
     populateYearFilter();
     renderTable();
 }
@@ -137,22 +134,24 @@ async function saveRow() {
 
     // Upsert on (tahun, bulan) — same reasoning as kutipan.js: recording a
     // month that already has a total should replace it, not error out.
-    const payload = { tahun, bulan, jumlah, updated_at: new Date().toISOString() };
-    const { error } = await db
-        .from('infaq_perbelanjaan_bulanan')
-        .upsert(payload, { onConflict: 'tahun,bulan' });
+    try {
+        await infaqApi('save-perbelanjaan', { method: 'POST', body: { row: { tahun, bulan, jumlah } } });
+    } catch (e) {
+        saveBtn.disabled  = false;
+        saveBtn.textContent = 'Simpan';
+        showToast('Gagal menyimpan: ' + e.message, 'error');
+        return;
+    }
 
     saveBtn.disabled  = false;
     saveBtn.textContent = 'Simpan';
 
-    if (error) { showToast('Gagal menyimpan: ' + error.message, 'error'); return; }
-
     showToast('Perbelanjaan bulanan disimpan', 'success');
     const label = labelFor({ tahun, bulan });
     if (editingRow && Number(editingRow.jumlah) !== jumlah) {
-        await logActivity('infaq_perbelanjaan_update', label, `Jumlah: ${formatRM(editingRow.jumlah)} → ${formatRM(jumlah)}`, 'infaq_activity_log');
+        await neonLog('infaq_perbelanjaan_update', label, `Jumlah: ${formatRM(editingRow.jumlah)} → ${formatRM(jumlah)}`, 'infaq_activity_log');
     } else if (!editingRow) {
-        await logActivity('infaq_perbelanjaan_create', label, formatRM(jumlah), 'infaq_activity_log');
+        await neonLog('infaq_perbelanjaan_create', label, formatRM(jumlah), 'infaq_activity_log');
     }
     closeModal();
     await loadRows();
@@ -182,15 +181,20 @@ async function confirmDelete() {
     btn.textContent = 'Memadam...';
 
     const target = allRows.find(r => r.id === deletingId);
-    const { error } = await db.from('infaq_perbelanjaan_bulanan').delete().eq('id', deletingId);
+    try {
+        await infaqApi('delete-perbelanjaan', { method: 'POST', body: { id: deletingId } });
+    } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Padam';
+        showToast('Gagal memadam: ' + e.message, 'error');
+        return;
+    }
 
     btn.disabled = false;
     btn.textContent = 'Padam';
 
-    if (error) { showToast('Gagal memadam: ' + error.message, 'error'); return; }
-
     showToast('Rekod perbelanjaan dipadam', 'success');
-    if (target) await logActivity('infaq_perbelanjaan_delete', labelFor(target), null, 'infaq_activity_log');
+    if (target) await neonLog('infaq_perbelanjaan_delete', labelFor(target), null, 'infaq_activity_log');
     closeDeleteModal();
     await loadRows();
 }

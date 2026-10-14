@@ -6,7 +6,7 @@ let updateTextCounter   = () => {};
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 (async () => {
-    const session = await requireAuth();
+    const session = await requireKuliahAuth();
     if (!session) return;
     if (!(await requireNewsAccess())) return;
 
@@ -27,12 +27,14 @@ let updateTextCounter   = () => {};
 
 // ─── Load and render ──────────────────────────────────────────────────────────
 async function loadAnnouncements() {
-    const { data, error } = await db.from('news_announcements').select('*').order('sort_order');
-    if (error) {
-        showToast('Gagal memuatkan pengumuman: ' + error.message, 'error');
+    let out;
+    try {
+        out = await newsApi('list-announcements');
+    } catch (e) {
+        showToast('Gagal memuatkan pengumuman: ' + e.message, 'error');
         return;
     }
-    allAnnouncements = data || [];
+    allAnnouncements = out.rows || [];
     renderTable();
 }
 
@@ -238,28 +240,22 @@ async function saveAnnouncement() {
 
     let newImageUrl = null;
     if (imageFile) {
-        const ext      = imageFile.name.split('.').pop().toLowerCase();
-        const safeSlug = title.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase().slice(0, 40) || 'pengumuman';
-        const filename = `announcements/${safeSlug}-${Date.now()}.${ext}`;
-
-        const { error: uploadErr } = await db.storage
-            .from('news-assets')
-            .upload(filename, imageFile, { upsert: true, contentType: imageFile.type });
-
-        if (uploadErr) {
-            showToast('Gagal muat naik imej: ' + uploadErr.message, 'error');
+        // Repo upload via /api/upload (Neon has no Storage) — returns a
+        // /news/assets/announcements/... path to store in Neon.
+        try {
+            newImageUrl = await uploadImage('announcements', imageFile);
+        } catch (e) {
+            showToast('Gagal muat naik imej: ' + e.message, 'error');
             saveBtn.disabled = false;
             saveBtn.textContent = 'Simpan';
             return;
         }
-
-        const { data: { publicUrl } } = db.storage.from('news-assets').getPublicUrl(filename);
-        newImageUrl = publicUrl;
     } else if (imageUrlInput) {
         newImageUrl = imageUrlInput;
     }
 
-    const payload = {
+    const row = {
+        id: id || undefined,
         title,
         heading:    heading || null,
         body_text:  text || null,
@@ -267,28 +263,26 @@ async function saveAnnouncement() {
         end_at:     endAt,
         enabled,
         sort_order: sortOrder,
-        updated_at: new Date().toISOString(),
     };
     if (pendingRemoveImage) {
-        payload.image_url = null;
+        row.image_url = null;
     } else if (newImageUrl) {
-        payload.image_url = newImageUrl;
+        row.image_url = newImageUrl;
+    } else if (id) {
+        row.image_url = before?.image_url || null;
     }
 
-    let error;
-    if (id) {
-        ({ error } = await db.from('news_announcements').update(payload).eq('id', id));
-    } else {
-        ({ error } = await db.from('news_announcements').insert(payload));
+    try {
+        await newsApi('save-announcement', { method: 'POST', body: { row } });
+    } catch (e) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Simpan';
+        showToast('Gagal menyimpan: ' + e.message, 'error');
+        return;
     }
 
     saveBtn.disabled = false;
     saveBtn.textContent = 'Simpan';
-
-    if (error) {
-        showToast('Gagal menyimpan: ' + error.message, 'error');
-        return;
-    }
 
     showToast(id ? 'Pengumuman dikemaskini' : 'Pengumuman berjaya ditambah', 'success');
     if (id) {
@@ -297,9 +291,9 @@ async function saveAnnouncement() {
             imageChanged: pendingRemoveImage || !!newImageUrl, imageRemoved: pendingRemoveImage,
         };
         const diff = buildAnnouncementDiffText(before, after);
-        if (diff) await logActivity('news_announcement_update', title, diff, 'news_activity_log');
+        if (diff) await neonLog('news_announcement_update', title, diff, 'news_activity_log');
     } else {
-        await logActivity('news_announcement_create', title, 'Pengumuman baharu ditambah.', 'news_activity_log');
+        await neonLog('news_announcement_create', title, 'Pengumuman baharu ditambah.', 'news_activity_log');
     }
     closeModal();
     await loadAnnouncements();
@@ -327,13 +321,18 @@ async function confirmDelete() {
     btn.disabled = true; btn.textContent = 'Memadam...';
 
     const target = allAnnouncements.find(a => a.id === deletingAnnId);
-    const { error } = await db.from('news_announcements').delete().eq('id', deletingAnnId);
+    try {
+        await newsApi('delete-announcement', { method: 'POST', body: { id: deletingAnnId } });
+    } catch (e) {
+        btn.disabled = false; btn.textContent = 'Padam';
+        showToast('Gagal memadam: ' + e.message, 'error');
+        return;
+    }
 
     btn.disabled = false; btn.textContent = 'Padam';
-    if (error) { showToast('Gagal memadam: ' + error.message, 'error'); return; }
 
     showToast('Pengumuman dipadam', 'success');
-    await logActivity('news_announcement_delete', target?.title || '(tidak diketahui)', 'Pengumuman dipadam.', 'news_activity_log');
+    await neonLog('news_announcement_delete', target?.title || '(tidak diketahui)', 'Pengumuman dipadam.', 'news_activity_log');
     closeDeleteModal();
     await loadAnnouncements();
 }
@@ -362,11 +361,16 @@ async function saveAnnouncementSettings() {
     const btn = document.getElementById('save-settings-btn');
     btn.disabled = true; btn.textContent = 'Menyimpan...';
 
-    const { error } = await saveSetting('default_image', value);
+    try {
+        await saveSetting('default_image', value);
+    } catch (e) {
+        btn.disabled = false; btn.textContent = 'Simpan Tetapan';
+        showToast('Gagal menyimpan tetapan: ' + e.message, 'error');
+        return;
+    }
 
     btn.disabled = false; btn.textContent = 'Simpan Tetapan';
-    if (error) { showToast('Gagal menyimpan tetapan: ' + error.message, 'error'); return; }
 
     showToast('Tetapan disimpan', 'success');
-    await logActivity('news_settings_update', 'default_image', `Imej lalai: ${value}`, 'news_activity_log');
+    await neonLog('news_settings_update', 'default_image', `Imej lalai: ${value}`, 'news_activity_log');
 }

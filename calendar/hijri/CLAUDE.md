@@ -13,7 +13,7 @@ Malaysian Islamic Important Dates Calendar (Kalendar Tarikh Penting Islam Malays
 - Google Fonts: Inter (shadcn/ui-inspired typography)
 - Data stored in `data/events.json` (single source of truth for all pages)
 - External APIs: e-Solat JAKIM API (Hijri dates/prayer times), SIRIM MST widget (Malaysia Standard Time)
-- Deployed via Vercel at `https://multimedia.mamtj6.com/calendar/hijri/` (GitHub Pages retired 2026-07-14)
+- Deployed via Vercel at `https://dev.mamtj6.com/calendar/hijri/` (GitHub Pages retired 2026-07-14)
 
 ## Development
 
@@ -74,7 +74,7 @@ GitHub Actions (monthly cron) ──→ generate_ics.py ──→ commit jakim_h
 - **Dark mode**: `darkMode: 'class'` in Tailwind config, anti-flash script in `<head>`, localStorage persistence with OS preference fallback
 - **Responsive layout**: Desktop uses `lg:grid lg:grid-cols-3` with sticky sidebar (upcoming event card on left, table on right). Below `lg` (1024px) everything stacks vertically. Below 768px, table rows transform into cards via `style.css`
 - **Color scheme**: Zinc neutrals, emerald for upcoming/next event highlights, amber for countdown badges
-- **Logos**: Two separate SVGs — `mamtj6-black.svg` (light mode) and `mamtj6-white.svg` (dark mode), toggled with `block dark:hidden` / `hidden dark:block`
+- **Logos**: Two separate SVGs — `mamtj6-black_text.svg` (light mode) and `mamtj6-white.svg` (dark mode), toggled with `block dark:hidden` / `hidden dark:block`
 - **Mobile breakpoint**: 767px in `style.css`. Desktop-first CSS with mobile overrides via `@media`
 - **Date locale**: `ms-MY` for Malay formatting. Hijri month names are mapped from numeric codes (`"01"` → `"Muharam"`, etc.)
 - **Date format**: Table shows `Hijri / Masihi (Hari)` e.g. `27 Rejab 1446 H / 17 Januari 2026 (Sabtu)`

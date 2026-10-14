@@ -8,7 +8,7 @@
 let allWeeks = [];
 
 (async () => {
-    const session = await requireAuth();
+    const session = await requireKuliahAuth();
     if (!session) return;
     if (!(await requireKhutbahAccess())) return;
     if (!canWriteModule('khutbah')) {
@@ -22,15 +22,14 @@ let allWeeks = [];
 
 async function loadWeeks() {
     const tbody = document.getElementById('khutbah-tbody');
-    const { data, error } = await db.from('khutbah_weeks')
-        .select('*')
-        .order('friday_date', { ascending: false })
-        .limit(52);
-    if (error) {
-        tbody.innerHTML = `<tr><td colspan="7" class="state-cell">Ralat memuatkan: ${escapeHtml(error.message)}</td></tr>`;
+    let out;
+    try {
+        out = await khutbahApi('list-weeks');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" class="state-cell">Ralat memuatkan: ${escapeHtml(e.message)}</td></tr>`;
         return;
     }
-    allWeeks = data || [];
+    allWeeks = out.rows || [];
     if (!allWeeks.length) {
         tbody.innerHTML = `<tr><td colspan="7" class="state-cell">Tiada data — klik "Jana & Terbitkan" untuk janaan pertama.</td></tr>`;
         return;
@@ -94,20 +93,19 @@ async function testKhutbahUrl() {
     const note = document.getElementById('test-url-note');
     const btn = document.getElementById('test-url-btn');
     if (!url) { note.textContent = 'Tampal pautan mufti dahulu.'; return; }
-    const session = (await db.auth.getSession()).data.session;
-    if (!session) { note.textContent = 'Sesi tamat. Sila log masuk semula.'; return; }
     btn.disabled = true;
     note.textContent = 'Menguji pautan...';
     try {
         const res = await fetch('/api/khutbah-test-url', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`,
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url }),
         });
         const json = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+            window.location.replace('/api/auth?action=login&next=' + encodeURIComponent(window.location.pathname));
+            return;
+        }
         if (!res.ok || json.success === false) {
             note.textContent = json.error || `Gagal menguji pautan (HTTP ${res.status}).`;
             return;
@@ -131,32 +129,28 @@ async function saveKhutbah() {
     const friday = document.getElementById('edit-friday').value;
     const before = allWeeks.find(w => w.id === id);
     const titleVal = document.getElementById('edit-title').value.trim() || null;
-    const payload = {
+    const row = {
+        id,
         title: titleVal,
         date_text: document.getElementById('edit-date-text').value.trim() || null,
         main_text: document.getElementById('edit-main-text').value.trim() || null,
         source_url: document.getElementById('edit-url').value.trim(),
         manual_override: document.getElementById('edit-override').checked,
-        updated_at: new Date().toISOString(),
     };
-    if (!payload.source_url) { showToast('Pautan sumber diperlukan.', 'error'); return; }
-    // Admin-verified (via Uji & Ambil Tajuk or typed by hand): a row with a
-    // title is good to display, so clear any stale auto-scrape failure —
-    // otherwise a previous fetch_failed badge sticks forever, since neither
-    // this save nor the locked publish path touches scrape_status.
-    if (titleVal) {
-        payload.scrape_status = 'ok';
-        payload.scrape_error = null;
+    if (!row.source_url) { showToast('Pautan sumber diperlukan.', 'error'); return; }
+    try {
+        await khutbahApi('save-week', { method: 'POST', body: { row } });
+    } catch (e) {
+        showToast(`Gagal menyimpan: ${e.message}`, 'error');
+        return;
     }
-    const { error } = await db.from('khutbah_weeks').update(payload).eq('id', id);
-    if (error) { showToast(`Gagal menyimpan: ${error.message}`, 'error'); return; }
     const wasLocked = !!before?.manual_override;
-    if (payload.manual_override && !wasLocked) {
-        logActivity('khutbah_lock', friday, 'Dikunci manual dari senarai', 'khutbah_activity_log');
-    } else if (!payload.manual_override && wasLocked) {
-        logActivity('khutbah_unlock', friday, 'Dibuka kunci manual dari senarai', 'khutbah_activity_log');
+    if (row.manual_override && !wasLocked) {
+        neonLog('khutbah_lock', friday, 'Dikunci manual dari senarai', 'khutbah_activity_log');
+    } else if (!row.manual_override && wasLocked) {
+        neonLog('khutbah_unlock', friday, 'Dibuka kunci manual dari senarai', 'khutbah_activity_log');
     }
-    logActivity('khutbah_manual_update', friday, buildDiffText(before, payload), 'khutbah_activity_log');
+    neonLog('khutbah_manual_update', friday, buildDiffText(before, row), 'khutbah_activity_log');
     showToast('Disimpan.', 'success');
     closeKhutbahModal();
     await loadWeeks();
@@ -177,10 +171,13 @@ function buildDiffText(before, after) {
 async function toggleLock(id, lock) {
     const r = allWeeks.find(w => w.id === id);
     if (!r) return;
-    const { error } = await db.from('khutbah_weeks')
-        .update({ manual_override: lock, updated_at: new Date().toISOString() }).eq('id', id);
-    if (error) { showToast(`Gagal: ${error.message}`, 'error'); return; }
-    logActivity(lock ? 'khutbah_lock' : 'khutbah_unlock', r.friday_date || '',
+    try {
+        await khutbahApi('toggle-lock', { method: 'POST', body: { id, lock } });
+    } catch (e) {
+        showToast(`Gagal: ${e.message}`, 'error');
+        return;
+    }
+    neonLog(lock ? 'khutbah_lock' : 'khutbah_unlock', r.friday_date || '',
         lock ? 'Dikunci manual dari senarai' : 'Dibuka kunci manual dari senarai', 'khutbah_activity_log');
     showToast(lock ? 'Dikunci — cron akan langkau minggu ini.' : 'Dibuka kunci.', 'success');
     await loadWeeks();
@@ -211,9 +208,13 @@ async function loadAlertSettings() {
 async function saveAlertSettings() {
     const emails = document.getElementById('set-alert-emails').value.trim();
     const from = document.getElementById('set-alert-from').value.trim();
-    const { error: e1 } = await saveKhutbahSetting('alert_emails', emails);
-    const { error: e2 } = await saveKhutbahSetting('alert_from', from);
-    if (e1 || e2) { showToast(`Gagal menyimpan tetapan: ${(e1 || e2).message}`, 'error'); return; }
-    logActivity('khutbah_settings_update', 'alert_emails', `alert_emails → "${emails}"`, 'khutbah_activity_log');
+    try {
+        await saveKhutbahSetting('alert_emails', emails);
+        await saveKhutbahSetting('alert_from', from);
+    } catch (e) {
+        showToast(`Gagal menyimpan tetapan: ${e.message}`, 'error');
+        return;
+    }
+    neonLog('khutbah_settings_update', 'alert_emails', `alert_emails → "${emails}"`, 'khutbah_activity_log');
     showToast('Tetapan disimpan.', 'success');
 }

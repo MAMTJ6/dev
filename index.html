@@ -6,18 +6,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MULTIMEDIA MAMTJ6</title>
   <!-- Favicon -->
-  <link rel="icon" type="image/svg+xml" href="/media/logo/mamtj6_single.svg" />
+  <link rel="icon" type="image/svg+xml" href="/media/logo-mamtj6/SVG/mamtj6_single.svg" />
   <!-- Open Graph Meta Tags (for Facebook, LinkedIn, etc.) -->
   <meta property="og:title" content="MULTIMEDIA MAMTJ6" />
   <meta property="og:description" content="Info tentang projek multimedia yang dibangunkan untuk kegunaan umum" />
-  <meta property="og:image" content="https://multimedia.mamtj6.com/media/web/linkpreview.jpg" />
-  <meta property="og:url" content="https://multimedia.mamtj6.com" />
+  <meta property="og:image" content="https://dev.mamtj6.com/media/web/linkpreview.jpg" />
+  <meta property="og:url" content="https://dev.mamtj6.com" />
   <meta property="og:type" content="website" />
   <!-- Twitter Card (for Twitter link preview) -->
   <meta name="twitter:card" content="MULTIMEDIA MAMTJ6" />
   <meta name="twitter:title" content="MULTIMEDIA MAMTJ6" />
   <meta name="twitter:description" content="Info tentang projek multimedia yang dibangunkan untuk kegunaan MAMTJ6" />
-  <meta name="twitter:image" content="https://multimedia.mamtj6.com/media/web/linkpreview.jpg" />
+  <meta name="twitter:image" content="https://dev.mamtj6.com/media/web/linkpreview.jpg" />
 
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -153,29 +153,6 @@
 
       <h3 id="modal-title" class="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-4 pr-6"></h3>
       <div id="modal-body"></div>
-    </div>
-  </div>
-
-  <!-- Notification Popup -->
-  <div id="notification"
-    class="notification hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[1000] w-[300px] rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-2xl p-5 text-center">
-    <button
-      class="close-notification absolute top-2 right-3 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-xl leading-none"
-      aria-label="Tutup">&times;</button>
-    <div class="notification-content mt-2 text-sm text-zinc-700 dark:text-zinc-300 space-y-2">
-      <p>Halaman baharu ditambah:</p>
-      <p class="font-semibold text-zinc-900 dark:text-zinc-100">Infaq Pembangunan (Beta 0)</p>
-      <a href="tabung/infaq-pembangunan.html"
-        class="inline-block rounded-full px-4 py-1.5 text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">Ke
-        Halaman</a>
-      <p class="font-semibold text-zinc-900 dark:text-zinc-100">Infaq Pembangunan (Beta 1)</p>
-      <a href="tabung/test/infaq-pembangunan-beta1.html"
-        class="inline-block rounded-full px-4 py-1.5 text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">Infaq
-        Pembangunan (Beta 1)</a>
-      <p class="font-semibold text-zinc-900 dark:text-zinc-100">Infaq Pembangunan (Beta 2)</p>
-      <a href="tabung/test/infaq-pembangunan-beta2.html"
-        class="inline-block rounded-full px-4 py-1.5 text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">Infaq
-        Pembangunan (Beta 2)</a>
     </div>
   </div>
 
@@ -360,32 +337,6 @@
           // Keep static fallback date on failure
         });
 
-      // Notification Logic
-      const notification = document.getElementById("notification");
-      const closeNotificationButton = document.querySelector(".close-notification");
-      const hasNewUpdate = false; // Set this to true if there is a new update to announce
-
-      if (hasNewUpdate) {
-        setTimeout(() => {
-          notification.classList.remove("hidden");
-        }, 2000);
-      }
-
-      closeNotificationButton.addEventListener("click", function () {
-        notification.classList.add("fade-out");
-        setTimeout(() => {
-          notification.classList.add("hidden");
-        }, 500);
-      });
-
-      if (hasNewUpdate) {
-        setTimeout(() => {
-          notification.classList.add("fade-out");
-          setTimeout(() => {
-            notification.classList.add("hidden");
-          }, 500);
-        }, 10000);
-      }
     });
   </script>
 </body>

@@ -5,14 +5,13 @@
    specifically (staff must never become a Supabase Auth principal).
    ========================================================= */
 
-// SETUP REQUIRED: paste the same Google OAuth Client ID Supabase Auth
-// already uses for admin login (Supabase Dashboard → Authentication →
-// Providers → Google → Client ID, or Google Cloud Console → APIs &
-// Services → Credentials). This value is NOT secret — Google Client IDs
-// are meant to be public/client-side by design — but this file has no
-// build step to inject it automatically, so it must be pasted in by
-// hand, and MUST exactly match the GOOGLE_CLIENT_ID Vercel env var
-// api/staff-login.js checks against, or every Google login will fail
+// SETUP REQUIRED: paste the same Google OAuth Client ID the admin login
+// already uses (Vercel env GOOGLE_CLIENT_ID for /api/auth, from Google
+// Cloud Console → APIs & Services → Credentials). This value is NOT secret
+// — Google Client IDs are meant to be public/client-side by design — but
+// this file has no build step to inject it automatically, so it must be
+// pasted in by hand, and MUST exactly match the GOOGLE_CLIENT_ID Vercel env
+// var api/staff-login.js checks against, or every Google login will fail
 // with "Log masuk Google tidak sah".
 const GOOGLE_CLIENT_ID = '737196492802-bobgcpvase2741dker8lbmj21tce1rq5.apps.googleusercontent.com';
 

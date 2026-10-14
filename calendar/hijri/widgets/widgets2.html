@@ -94,7 +94,7 @@
             return;
         }
 
-        fetch('events.json')
+        fetch('../data/events.json')
             .then(response => { if (!response.ok) { throw new Error('Fail events.json tidak ditemui.'); } return response.json(); })
             .then(jsonData => {
                 const eventData = jsonData.events;

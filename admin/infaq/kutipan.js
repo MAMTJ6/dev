@@ -10,7 +10,7 @@ let deletingId = null;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 (async () => {
-    const session = await requireAuth();
+    const session = await requireKuliahAuth();
     if (!session) return;
     if (!(await requireInfaqAccess())) return;
     const canWrite = canWriteModule('infaq');
@@ -26,19 +26,15 @@ async function loadRows() {
     const tbody = document.getElementById('kutipan-tbody');
     tbody.innerHTML = '<tr><td colspan="4" class="state-cell">Memuatkan...</td></tr>';
 
-    const { data, error } = await db
-        .from('infaq_kutipan_mingguan')
-        .select('*')
-        .order('tahun', { ascending: false })
-        .order('bulan', { ascending: false })
-        .order('minggu', { ascending: false });
-
-    if (error) {
-        tbody.innerHTML = `<tr><td colspan="4" class="state-cell">Ralat: ${escapeHtml(error.message)}</td></tr>`;
+    let out;
+    try {
+        out = await infaqApi('list-kutipan');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="4" class="state-cell">Ralat: ${escapeHtml(e.message)}</td></tr>`;
         return;
     }
 
-    allRows = data || [];
+    allRows = out.rows || [];
     populateYearFilter();
     renderTable();
 }
@@ -164,22 +160,24 @@ async function saveRow() {
     // remember whether a row for that week already exists. Editing an
     // existing row (via the Edit button) still goes through the same path
     // since tahun/bulan/minggu are the natural key either way.
-    const payload = { tahun, bulan, minggu, jumlah, updated_at: new Date().toISOString() };
-    const { error } = await db
-        .from('infaq_kutipan_mingguan')
-        .upsert(payload, { onConflict: 'tahun,bulan,minggu' });
+    try {
+        await infaqApi('save-kutipan', { method: 'POST', body: { row: { tahun, bulan, minggu, jumlah } } });
+    } catch (e) {
+        saveBtn.disabled  = false;
+        saveBtn.textContent = 'Simpan';
+        showToast('Gagal menyimpan: ' + e.message, 'error');
+        return;
+    }
 
     saveBtn.disabled  = false;
     saveBtn.textContent = 'Simpan';
 
-    if (error) { showToast('Gagal menyimpan: ' + error.message, 'error'); return; }
-
     showToast('Kutipan mingguan disimpan', 'success');
     const label = labelFor({ tahun, bulan, minggu });
     if (editingRow && Number(editingRow.jumlah) !== jumlah) {
-        await logActivity('infaq_kutipan_mingguan_update', label, `Jumlah: ${formatRM(editingRow.jumlah)} → ${formatRM(jumlah)}`, 'infaq_activity_log');
+        await neonLog('infaq_kutipan_mingguan_update', label, `Jumlah: ${formatRM(editingRow.jumlah)} → ${formatRM(jumlah)}`, 'infaq_activity_log');
     } else if (!editingRow) {
-        await logActivity('infaq_kutipan_mingguan_create', label, formatRM(jumlah), 'infaq_activity_log');
+        await neonLog('infaq_kutipan_mingguan_create', label, formatRM(jumlah), 'infaq_activity_log');
     }
     closeModal();
     await loadRows();
@@ -209,15 +207,20 @@ async function confirmDelete() {
     btn.textContent = 'Memadam...';
 
     const target = allRows.find(r => r.id === deletingId);
-    const { error } = await db.from('infaq_kutipan_mingguan').delete().eq('id', deletingId);
+    try {
+        await infaqApi('delete-kutipan', { method: 'POST', body: { id: deletingId } });
+    } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Padam';
+        showToast('Gagal memadam: ' + e.message, 'error');
+        return;
+    }
 
     btn.disabled = false;
     btn.textContent = 'Padam';
 
-    if (error) { showToast('Gagal memadam: ' + error.message, 'error'); return; }
-
     showToast('Rekod kutipan dipadam', 'success');
-    if (target) await logActivity('infaq_kutipan_mingguan_delete', labelFor(target), null, 'infaq_activity_log');
+    if (target) await neonLog('infaq_kutipan_mingguan_delete', labelFor(target), null, 'infaq_activity_log');
     closeDeleteModal();
     await loadRows();
 }

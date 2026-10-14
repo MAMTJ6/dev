@@ -17,7 +17,7 @@ const urlsToCache = [
   'favicon/site.webmanifest',
   // Aset luaran
   'https://i.postimg.cc/JnM7F2FC/mamtj6-white-text.webp',
-  'https://multimedia.mamtj6.com/media/img/plain-blue-bg.png',
+  '/media/img/plain-blue-bg.png',
   'https://dev.mamtj6.com/media/logo-mamtj6/SVG/mamtj6_single.svg'
 ];
 

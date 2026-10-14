@@ -16,7 +16,7 @@ const CONFIG = {
   GITHUB_USER: PropertiesService.getScriptProperties().getProperty('GITHUB_USER'),
   GITHUB_REPO: PropertiesService.getScriptProperties().getProperty('GITHUB_REPO'),
   PIN: PropertiesService.getScriptProperties().getProperty('PIN'),
-  FILE_PATH: 'calendar/hijri/events.json'
+  FILE_PATH: 'calendar/hijri/data/events.json'
 };
 
 /**

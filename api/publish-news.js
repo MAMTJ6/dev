@@ -1,13 +1,13 @@
-// Vercel serverless function: publishes news/data/announcements.json and
-// news/data/moving-text.json from Supabase (news_announcements/news_ticker),
-// retiring the old Google Sheet → Apps Script → GitHub pipeline
-// (news/moving-text/code.gs). That pipeline did NO validation of any kind —
-// it forwarded whatever was in a Sheet cell straight to the live ticker,
-// which is how "ERROR: Failed to fetch the webpage. Status: 503" ended up
-// scrolling across the prayer hall for 3 weeks (see news/newplan.md). The
-// khutbah-resolution fail-safe below is the point of this rewrite, not a
-// detail of it — never interpolate an error/status string into a published
-// line.
+// Vercel serverless function: news data layer + publisher on Neon.
+// Replaces direct supabase-js calls from admin/news/*.js AND the old
+// Supabase-REST publish flow. Single function (Hobby 12-function limit).
+//
+// Two branches, split by query param (same convention as api/staff-login.js):
+//   ?action=...  — admin CRUD (cookie session via lib/db.js
+//     requireAdmin(req,'news')): list/save/delete for announcements +
+//     ticker, reorder-ticker batch, settings get/save.
+//   ?target=...  — publish (POST, cookie session) or Vercel cron (GET,
+//     CRON_SECRET Bearer, publishes BOTH targets, actor 'vercel-cron').
 //
 // Two publish targets, independently triggerable:
 //   ?target=announcements → news/data/announcements.json  (our news/script.js
@@ -19,26 +19,19 @@
 //                            scheduling MUST be resolved here, server-side,
 //                            at publish time; see buildMovingTextJson())
 //
-// Dual auth, unlike api/publish-infaq.js:
-//   POST ?target=... , Authorization: Bearer <supabase user JWT> — the normal
-//     admin-dashboard "Terbitkan" click, validated against /auth/v1/user
-//     exactly like api/publish.js / api/publish-infaq.js. Publishes ONE target.
-//   GET, Authorization: Bearer <CRON_SECRET> — the Vercel cron path (see
-//     vercel.json). Publishes BOTH targets, actor_email = 'vercel-cron'.
-//     Fails closed: if CRON_SECRET isn't set in the environment, every GET
-//     is rejected rather than defaulting open.
+// The khutbah fail-safe is the point of this file, not a detail of it —
+// never interpolate an error/status string into a published line (see the
+// old "ERROR: ... 503" ticker incident in news/newplan.md).
 //
 // Required Vercel environment variables:
-//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GITHUB_TOKEN, GITHUB_REPO
-//     (same ones api/publish.js / api/publish-infaq.js already use)
-//   CRON_SECRET (new — shared secret for the GET/cron path only)
+//   NEON_DATABASE_URL, AUTH_SECRET, GITHUB_TOKEN, GITHUB_REPO, CRON_SECRET
+//
+// Neon version (2026-10-14): Supabase REST replaced with await sql().
+// Pure scheduling/CSV builders still live in
+// admin/news/publish-news-pure.js (zero Node dependency — also loaded as a
+// plain <script> by the ticker preview panel).
 
-// Pure scheduling/CSV builders live in admin/news/publish-news-pure.js, NOT
-// in this file — that module has zero Node/Vercel dependency, so it doubles
-// as the ticker preview panel's logic via a plain <script src> in
-// admin/news/teks-berjalan.html. A file under api/ can't fill that second
-// role: any GET to it is routed to this live serverless function, not
-// served as source. See that file's own header for the full reasoning.
+const { sql, requireAdmin } = require('../lib/db');
 const {
     parseCSVRow,
     looksLikeErrorText,
@@ -58,6 +51,29 @@ const TARGETS = {
 };
 
 const TARGET_LABELS = { announcements: 'Pengumuman', 'moving-text': 'Teks Berjalan' };
+
+// news_settings keys the admin UI is allowed to write. The khutbah_last_*
+// cache keys are server-written only (resolveKhutbahTitle below).
+const WRITABLE_SETTINGS = new Set(['default_image', 'default_ticker_line', 'khutbah_csv_url']);
+
+// Neon may return TIMESTAMP columns as Date objects, but every pure helper
+// (normalizeBoundary/isActiveNow) and every consumer (admin inputs slice to
+// 16 chars, news/script.js parseLocalDate) works on wall-time strings —
+// String(Date) would be "Wed Oct 14 ..." garbage. Normalize at the boundary:
+// Date → UTC ISO (tz-less TIMESTAMPs round-trip byte-identical on a UTC
+// server), strings pass through truncated to YYYY-MM-DDTHH:MM, bare dates
+// untouched so the full-day expansion still applies downstream.
+function tsStr(v) {
+    if (v == null) return null;
+    if (v instanceof Date) return v.toISOString().slice(0, 16);
+    const s = String(v);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    return s.slice(0, 16);
+}
+
+function normNewsRow(r) {
+    return { ...r, start_at: tsStr(r.start_at), end_at: tsStr(r.end_at) };
+}
 
 // ── Non-pure helpers (network I/O — not exported, same split as
 // api/publish-infaq.js's pushJsonToGitHub) ──────────────────────────────────
@@ -87,30 +103,20 @@ async function fetchKhutbahTitle(csvUrl) {
     }
 }
 
-// Fail-safe khutbah resolution: on ANY failure (non-200, timeout, empty
-// sheet, unparseable, or an error-smelling value), falls back to the last
+// Fail-safe khutbah resolution: on ANY failure falls back to the last
 // known-good title cached in news_settings.khutbah_last_title instead of
-// ever publishing the failure itself — exactly the gate the old pipeline
-// never had (see file header). On success, also writes the new title back
-// to that cache so the NEXT failure has something to fall back to. Returns
-// null only when there is truly nothing usable, current or cached —
+// ever publishing the failure itself. On success, also writes the new title
+// back to that cache so the NEXT failure has something to fall back to.
+// Returns null only when there is truly nothing usable, current or cached —
 // buildMovingTextJson then omits the khutbah row entirely.
-async function resolveKhutbahTitle(csvUrl, lastGoodTitle, sbHeaders, supabaseUrl) {
+async function resolveKhutbahTitle(csvUrl, lastGoodTitle) {
     const fresh = await fetchKhutbahTitle(csvUrl);
     if (!fresh) return lastGoodTitle || null;
 
     try {
         const nowIso = new Date().toISOString();
-        await fetch(`${supabaseUrl}/rest/v1/news_settings?key=eq.khutbah_last_title`, {
-            method: 'PATCH',
-            headers: { ...sbHeaders, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-            body: JSON.stringify({ value: fresh, updated_at: nowIso }),
-        });
-        await fetch(`${supabaseUrl}/rest/v1/news_settings?key=eq.khutbah_last_fetched_at`, {
-            method: 'PATCH',
-            headers: { ...sbHeaders, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-            body: JSON.stringify({ value: nowIso, updated_at: nowIso }),
-        });
+        await sql()`UPDATE news_settings SET value = ${fresh}, updated_at = ${nowIso} WHERE key = 'khutbah_last_title'`;
+        await sql()`UPDATE news_settings SET value = ${nowIso}, updated_at = ${nowIso} WHERE key = 'khutbah_last_fetched_at'`;
     } catch (e) {
         console.error('news_settings khutbah cache write failed:', e); // never blocks the publish
     }
@@ -121,9 +127,7 @@ async function resolveKhutbahTitle(csvUrl, lastGoodTitle, sbHeaders, supabaseUrl
 // api/publish.js / api/publish-infaq.js — but skips the PUT entirely (and
 // returns { unchanged: true }) when the new content is byte-identical to
 // what's already committed. Without this, the daily cron manufactures a
-// commit every single day regardless of whether anything actually changed —
-// exactly the noise the old pipeline's weekly "Update ticker: ..." commits
-// created.
+// commit every single day regardless of whether anything actually changed.
 async function pushJsonToGitHubIfChanged(ghHeaders, githubRepo, filePath, jsonObj, commitMessage) {
     const contentsRes = await fetch(`https://api.github.com/repos/${githubRepo}/contents/${filePath}`, { headers: ghHeaders });
     if (!contentsRes.ok && contentsRes.status !== 404) {
@@ -159,32 +163,38 @@ async function pushJsonToGitHubIfChanged(ghHeaders, githubRepo, filePath, jsonOb
 }
 
 async function publishOneTarget(target, ctx) {
-    const { supabaseUrl, sbHeaders, ghHeaders, githubRepo, settings, mytNow, actorEmail, actorName } = ctx;
+    const { ghHeaders, githubRepo, settings, mytNow, actorEmail, actorName } = ctx;
     const { file, commitMessage, action } = TARGETS[target];
 
     let jsonOut, activityDetail;
 
     if (target === 'announcements') {
-        const rowsRes = await fetch(`${supabaseUrl}/rest/v1/news_announcements?select=*`, { headers: sbHeaders });
-        if (!rowsRes.ok) throw new Error(`Failed to fetch news_announcements (status ${rowsRes.status})`);
-        const rows = await rowsRes.json();
-
-        jsonOut = buildAnnouncementsJson(rows, settings);
+        let rows;
+        try {
+            rows = await sql()`SELECT id, title, heading, body_text, image_url, start_at, end_at, enabled, sort_order FROM news_announcements`;
+        } catch (e) {
+            throw new Error(`Failed to fetch news_announcements: ${e.message}`);
+        }
+        jsonOut = buildAnnouncementsJson(rows.map(normNewsRow), settings);
         activityDetail = `${jsonOut.announcements.length} pengumuman diterbitkan`;
     } else {
-        const rowsRes = await fetch(`${supabaseUrl}/rest/v1/news_ticker?select=*`, { headers: sbHeaders });
-        if (!rowsRes.ok) throw new Error(`Failed to fetch news_ticker (status ${rowsRes.status})`);
-        const rows = await rowsRes.json();
+        let rows;
+        try {
+            rows = await sql()`SELECT id, message, kind, prefix, start_at, end_at, enabled, sort_order FROM news_ticker`;
+        } catch (e) {
+            throw new Error(`Failed to fetch news_ticker: ${e.message}`);
+        }
+        const norm = rows.map(normNewsRow);
 
         // Only bother fetching the khutbah CSV if a khutbah row could
         // actually be active — the common case (no khutbah row, or it's
         // disabled) shouldn't pay for a network round-trip it won't use.
         let khutbahTitle = null;
-        if (rows.some(r => r.kind === 'khutbah' && isActiveNow(r, mytNow))) {
-            khutbahTitle = await resolveKhutbahTitle(settings.khutbah_csv_url, settings.khutbah_last_title, sbHeaders, supabaseUrl);
+        if (norm.some(r => r.kind === 'khutbah' && isActiveNow(r, mytNow))) {
+            khutbahTitle = await resolveKhutbahTitle(settings.khutbah_csv_url, settings.khutbah_last_title);
         }
 
-        jsonOut = buildMovingTextJson(rows, settings, khutbahTitle, mytNow);
+        jsonOut = buildMovingTextJson(norm, settings, khutbahTitle, mytNow);
         activityDetail = `${jsonOut['moving-text'].length} baris teks berjalan diterbitkan`;
     }
 
@@ -192,22 +202,124 @@ async function publishOneTarget(target, ctx) {
 
     // Activity log write never blocks the publish response.
     try {
-        await fetch(`${supabaseUrl}/rest/v1/news_activity_log`, {
-            method: 'POST',
-            headers: { ...sbHeaders, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-            body: JSON.stringify({
-                actor_email:  actorEmail || 'unknown',
-                actor_name:   actorName,
-                action,
-                target_label: TARGET_LABELS[target],
-                detail:       commit.unchanged ? `${activityDetail} (tiada perubahan)` : activityDetail,
-            }),
-        });
+        await sql()`INSERT INTO news_activity_log (actor_email, actor_name, action, target_label, detail) VALUES (${actorEmail || 'unknown'}, ${actorName}, ${action}, ${TARGET_LABELS[target]}, ${commit.unchanged ? activityDetail + ' (tiada perubahan)' : activityDetail})`;
     } catch (e) {
         console.error('news_activity_log insert failed:', e);
     }
 
     return { success: true, target, unchanged: !!commit.unchanged, commitUrl: commit.commit?.html_url ?? null };
+}
+
+// ─── Admin CRUD (?action=...) ────────────────────────────────────────────────
+async function handleAdmin(req, res) {
+    const action = String(req.query.action || '');
+    const { error: authErr } = await requireAdmin(req, 'news');
+    if (authErr) return res.status(authErr).json({ error: 'unauthorized' });
+
+    try {
+        // ── Reads ──
+        if (req.method === 'GET' && action === 'list-announcements') {
+            const rows = await sql()`SELECT id, title, heading, body_text, image_url, start_at, end_at, enabled, sort_order, created_at, updated_at FROM news_announcements ORDER BY sort_order ASC`;
+            return res.status(200).json({ rows: rows.map(normNewsRow) });
+        }
+        if (req.method === 'GET' && action === 'list-ticker') {
+            const rows = await sql()`SELECT id, message, kind, prefix, start_at, end_at, enabled, sort_order, created_at, updated_at FROM news_ticker ORDER BY sort_order ASC`;
+            return res.status(200).json({ rows: rows.map(normNewsRow) });
+        }
+        if (req.method === 'GET' && action === 'get-settings') {
+            const keys = String(req.query.keys || 'default_image,default_ticker_line,khutbah_last_title,khutbah_last_fetched_at').split(',').map(s => s.trim()).filter(Boolean);
+            const rows = keys.length
+                ? await sql()`SELECT key, value FROM news_settings WHERE key = ANY(${keys})`
+                : await sql()`SELECT key, value FROM news_settings`;
+            const out = {};
+            rows.forEach(r => { out[r.key] = r.value; });
+            return res.status(200).json({ settings: out });
+        }
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+        const b = req.body || {};
+
+        // ── Announcements save (insert when no id, update when id) ──
+        if (action === 'save-announcement') {
+            const r = b.row || {};
+            if (!r.title || !String(r.title).trim()) return res.status(400).json({ error: 'title required' });
+            const row = {
+                title: String(r.title).trim(),
+                heading: r.heading ? String(r.heading).trim() || null : null,
+                body_text: r.body_text ? String(r.body_text) || null : null,
+                image_url: r.image_url || null,
+                start_at: r.start_at || null,
+                end_at: r.end_at || null,
+                enabled: r.enabled !== false,
+                sort_order: Number.isFinite(+r.sort_order) ? +r.sort_order : 0,
+            };
+            if (!row.image_url && !row.body_text) {
+                return res.status(400).json({ error: 'image_url or body_text required' });
+            }
+            if (r.id) {
+                await sql()`UPDATE news_announcements SET title = ${row.title}, heading = ${row.heading}, body_text = ${row.body_text}, image_url = ${row.image_url}, start_at = ${row.start_at}, end_at = ${row.end_at}, enabled = ${row.enabled}, sort_order = ${row.sort_order}, updated_at = NOW() WHERE id = ${r.id}`;
+            } else {
+                await sql()`INSERT INTO news_announcements (title, heading, body_text, image_url, start_at, end_at, enabled, sort_order) VALUES (${row.title}, ${row.heading}, ${row.body_text}, ${row.image_url}, ${row.start_at}, ${row.end_at}, ${row.enabled}, ${row.sort_order})`;
+            }
+            return res.status(200).json({ ok: true });
+        }
+        if (action === 'delete-announcement') {
+            if (!b.id) return res.status(400).json({ error: 'missing id' });
+            await sql()`DELETE FROM news_announcements WHERE id = ${b.id}`;
+            return res.status(200).json({ ok: true });
+        }
+
+        // ── Ticker save ──
+        if (action === 'save-ticker') {
+            const r = b.row || {};
+            const kind = r.kind === 'khutbah' ? 'khutbah' : 'static';
+            const row = {
+                kind,
+                message: kind === 'static' ? (r.message || null) : null,
+                prefix: kind === 'khutbah' ? (r.prefix || null) : null,
+                start_at: r.start_at || null,
+                end_at: r.end_at || null,
+                enabled: r.enabled !== false,
+                sort_order: Number.isFinite(+r.sort_order) ? +r.sort_order : 0,
+            };
+            if (kind === 'static' && !row.message) return res.status(400).json({ error: 'message required' });
+            if (r.id) {
+                await sql()`UPDATE news_ticker SET kind = ${row.kind}, message = ${row.message}, prefix = ${row.prefix}, start_at = ${row.start_at}, end_at = ${row.end_at}, enabled = ${row.enabled}, sort_order = ${row.sort_order}, updated_at = NOW() WHERE id = ${r.id}`;
+            } else {
+                await sql()`INSERT INTO news_ticker (kind, message, prefix, start_at, end_at, enabled, sort_order) VALUES (${row.kind}, ${row.message}, ${row.prefix}, ${row.start_at}, ${row.end_at}, ${row.enabled}, ${row.sort_order})`;
+            }
+            return res.status(200).json({ ok: true });
+        }
+        if (action === 'delete-ticker') {
+            if (!b.id) return res.status(400).json({ error: 'missing id' });
+            await sql()`DELETE FROM news_ticker WHERE id = ${b.id}`;
+            return res.status(200).json({ ok: true });
+        }
+        // ── Ticker reorder batch (drag-drop + ↑/↓ swap, one call) ──
+        if (action === 'reorder-ticker') {
+            const rows = Array.isArray(b.rows) ? b.rows : [];
+            if (!rows.length) return res.status(400).json({ error: 'empty' });
+            for (const r of rows) {
+                if (!r.id || !Number.isFinite(+r.sort_order)) return res.status(400).json({ error: 'bad rows' });
+            }
+            for (const r of rows) {
+                await sql()`UPDATE news_ticker SET sort_order = ${+r.sort_order}, updated_at = NOW() WHERE id = ${r.id}`;
+            }
+            return res.status(200).json({ ok: true, count: rows.length });
+        }
+
+        // ── Settings save ──
+        if (action === 'save-setting') {
+            if (!WRITABLE_SETTINGS.has(String(b.key))) return res.status(400).json({ error: 'bad key' });
+            await sql()`UPDATE news_settings SET value = ${String(b.value ?? '')}, updated_at = NOW() WHERE key = ${String(b.key)}`;
+            return res.status(200).json({ ok: true });
+        }
+
+        return res.status(400).json({ error: 'unknown action' });
+    } catch (e) {
+        console.error('/api/publish-news admin failed:', e);
+        return res.status(500).json({ error: 'server error', details: e.message });
+    }
 }
 
 async function handler(req, res) {
@@ -221,13 +333,13 @@ async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const supabaseUrl  = process.env.SUPABASE_URL;
-    const serviceKey   = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // ── Admin CRUD branch ───────────────────────────────────────────────────
+    if (req.query && req.query.action) {
+        return handleAdmin(req, res);
+    }
+
     const githubToken  = process.env.GITHUB_TOKEN;
     const githubRepo   = process.env.GITHUB_REPO;
-    if (!supabaseUrl || !serviceKey) {
-        return res.status(500).json({ error: 'Server misconfiguration: missing Supabase env vars' });
-    }
     if (!githubToken || !githubRepo) {
         return res.status(500).json({ error: 'Server misconfiguration: missing GitHub env vars' });
     }
@@ -253,23 +365,14 @@ async function handler(req, res) {
         if (!TARGETS[target]) {
             return res.status(400).json({ error: 'Missing or invalid target — expected ?target=announcements|moving-text' });
         }
-        const authHeader = req.headers.authorization;
-        if (!authHeader?.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'Missing Authorization header' });
-        }
-        const userJwt = authHeader.slice(7);
-        const authCheck = await fetch(`${supabaseUrl}/auth/v1/user`, {
-            headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${userJwt}` },
-        });
-        if (!authCheck.ok) {
-            return res.status(401).json({ error: 'Invalid or expired session' });
-        }
-        const authUser = await authCheck.json();
-        actorEmail = authUser?.email || null;
+        // Cookie session (Google OAuth via /api/auth) — no Bearer JWT.
+        const { admin, error: authErr } = await requireAdmin(req, 'news');
+        if (authErr) return res.status(authErr).json({ error: 'Unauthorized' });
+        actorEmail = admin.email;
+        actorName = admin.name || null;
         targets = [target];
     }
 
-    const sbHeaders = { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Accept': 'application/json' };
     const ghHeaders = {
         'Authorization':        `Bearer ${githubToken}`,
         'Accept':               'application/vnd.github+json',
@@ -277,27 +380,16 @@ async function handler(req, res) {
         'Content-Type':         'application/json',
     };
 
-    if (actorEmail && actorEmail !== 'vercel-cron') {
-        const adminRes = await fetch(
-            `${supabaseUrl}/rest/v1/admins?select=name&email=ilike.${encodeURIComponent(actorEmail)}`,
-            { headers: sbHeaders }
-        );
-        if (adminRes.ok) {
-            actorName = (await adminRes.json())[0]?.name || null;
-        } else {
-            console.error('admins name lookup failed:', adminRes.status, await adminRes.text().catch(() => ''));
-        }
+    let settings = {};
+    try {
+        const rows = await sql()`SELECT key, value FROM news_settings`;
+        rows.forEach(r => { settings[r.key] = r.value; });
+    } catch (e) {
+        return res.status(500).json({ error: 'Failed to fetch news_settings from Neon', details: e.message });
     }
-
-    const settingsRes = await fetch(`${supabaseUrl}/rest/v1/news_settings?select=key,value`, { headers: sbHeaders });
-    if (!settingsRes.ok) {
-        return res.status(500).json({ error: 'Failed to fetch news_settings', details: await settingsRes.text() });
-    }
-    const settings = {};
-    (await settingsRes.json()).forEach(r => { settings[r.key] = r.value; });
 
     const mytNow = new Date(Date.now() + MYT_OFFSET_MS);
-    const ctx = { supabaseUrl, sbHeaders, ghHeaders, githubRepo, settings, mytNow, actorEmail, actorName };
+    const ctx = { ghHeaders, githubRepo, settings, mytNow, actorEmail, actorName };
 
     const results = {};
     for (const target of targets) {
@@ -319,7 +411,7 @@ async function handler(req, res) {
 
 // module.exports itself is the request handler, with the pure builders
 // re-exported as properties (same convention as api/publish.js /
-// api/publish-infaq.js) — api/publish-news.test.js imports them from here.
+// api/publish-infaq.js) — tests/publish-news.test.js imports them from here.
 module.exports = handler;
 module.exports.parseCSVRow            = parseCSVRow;
 module.exports.looksLikeErrorText     = looksLikeErrorText;

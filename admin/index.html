@@ -8,14 +8,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/admin/style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 
 <body>
   <div class="login-page">
     <div class="login-card">
       <!-- Mosque logo — falls back gracefully if path not found -->
-      <img src="/media/masjid-logo-black.svg" class="login-logo" alt="" onerror="this.style.display='none'">
+      <img src="/media/logo-mamtj6/SVG/mamtj6_single.svg" class="login-logo" alt="" onerror="this.style.display='none'">
 
       <h1 class="login-title">Sistem Dashboard Admin</h1>
       <p class="login-subtitle">Masjid Al-Mukhlisin<br>Taman Jaya 6</p>
@@ -48,16 +47,17 @@
       if (new URLSearchParams(location.search).get('denied')) {
         showToast('Akses ditolak. Akaun Google anda tidak dibenarkan.', 'error', 8000);
       }
-      const { data: { session } } = await db.auth.getSession();
-      if (session) {
-        const { data: admin } = await db.from('admins').select('*').eq('email', session.user.email).single();
+      try {
+        const res = await fetch('/api/auth?action=me');
+        if (!res.ok) return;
+        const admin = await res.json();
         const target = admin ? defaultLandingPageFor(admin) : null;
         if (target) {
           window.location.replace(target);
         } else if (admin) {
           showToast('Tiada akses modul. Hubungi Super Admin.', 'error', 8000);
         }
-      }
+      } catch (e) { /* not logged in — stay on the login page */ }
     })();
   </script>
 </body>

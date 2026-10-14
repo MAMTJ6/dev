@@ -6,13 +6,17 @@
 // The admin reviews the filled modal fields and clicks Simpan
 // (manual_override=true), then Jana & Terbitkan.
 //
-// POST-only, Supabase JWT auth (same shape as api/publish-khutbah.js POST
+// POST-only, cookie session (same shape as api/publish-khutbah.js POST
 // path). No CRON_SECRET GET path — cron never calls this.
+//
+// Neon version (2026-10-14): Supabase JWT check replaced with
+// requireAdmin(req,'khutbah').
 //
 // Body: { url } (JSON) — req.query.url accepted as fallback.
 // Success: 200 { success:true, title, date_text, dateMatched, titleMatched, source_url }
 // Failure: 4xx/5xx { success:false, code, error } where code is one of
 //   INVALID_URL | FETCH_FAIL | HTTP_404 | PARSE_FAIL
+const { requireAdmin } = require('../lib/db');
 const { extractDateTitle } = require('../admin/khutbah/publish-khutbah-pure.js');
 
 async function fetchWithTimeout(url, ms) {
@@ -37,21 +41,9 @@ async function handler(req, res) {
         return res.status(405).json({ success: false, code: 'METHOD_NOT_ALLOWED', error: 'Method not allowed — POST only' });
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !serviceKey) {
-        return res.status(500).json({ success: false, code: 'MISCONFIG', error: 'Server misconfiguration: missing Supabase env vars' });
-    }
-
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-        return res.status(401).json({ success: false, code: 'NO_AUTH', error: 'Missing Authorization header' });
-    }
-    const authCheck = await fetch(`${supabaseUrl}/auth/v1/user`, {
-        headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${authHeader.slice(7)}` },
-    });
-    if (!authCheck.ok) {
-        return res.status(401).json({ success: false, code: 'NO_AUTH', error: 'Invalid or expired session' });
+    const { error: authErr } = await requireAdmin(req, 'khutbah');
+    if (authErr) {
+        return res.status(authErr).json({ success: false, code: 'NO_AUTH', error: 'Unauthorized' });
     }
 
     let rawUrl = (req.body && req.body.url) || req.query.url || '';

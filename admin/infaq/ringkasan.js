@@ -1,6 +1,6 @@
 // ─── Init ─────────────────────────────────────────────────────────────────────
 (async () => {
-    const session = await requireAuth();
+    const session = await requireKuliahAuth();
     if (!session) return;
     if (!(await requireInfaqAccess())) return;
     await Promise.all([
@@ -23,40 +23,51 @@ async function loadStats() {
     let lastMonthYear = year, lastMonth = month - 1;
     if (lastMonth < 1) { lastMonth = 12; lastMonthYear = year - 1; }
 
-    const [kutipanRes, belanjaRes] = await Promise.all([
-        db.from('infaq_kutipan_mingguan').select('tahun, bulan, jumlah').in('tahun', [year, lastMonthYear]),
-        db.from('infaq_perbelanjaan_bulanan').select('tahun, bulan, jumlah').in('tahun', [year, lastMonthYear]),
+    const [kutipanRows, belanjaRows] = await Promise.all([
+        infaqApi('list-kutipan').then(o => o.rows || []).catch(e => {
+            console.error('Gagal memuatkan kutipan:', e.message);
+            return [];
+        }),
+        infaqApi('list-perbelanjaan').then(o => o.rows || []).catch(e => {
+            console.error('Gagal memuatkan perbelanjaan:', e.message);
+            return [];
+        }),
     ]);
-
-    if (kutipanRes.error) console.error('Gagal memuatkan kutipan:', kutipanRes.error.message);
-    if (belanjaRes.error) console.error('Gagal memuatkan perbelanjaan:', belanjaRes.error.message);
-
-    const kutipanRows = kutipanRes.data || [];
-    const belanjaRows = belanjaRes.data || [];
+    const inYears = r => r.tahun === year || r.tahun === lastMonthYear;
+    const kutipanSel = kutipanRows.filter(inYears);
+    const belanjaSel = belanjaRows.filter(inYears);
     const sumMonth = (rows, y, m) => rows.filter(r => r.tahun === y && r.bulan === m).reduce((s, r) => s + Number(r.jumlah), 0);
     const sumYear  = (rows, y) => rows.filter(r => r.tahun === y).reduce((s, r) => s + Number(r.jumlah), 0);
 
-    document.getElementById('stat-kutipan-ini').textContent   = formatRM(sumMonth(kutipanRows, year, month));
-    document.getElementById('stat-kutipan-lepas').textContent = formatRM(sumMonth(kutipanRows, lastMonthYear, lastMonth));
-    document.getElementById('stat-kutipan-tahun').textContent = formatRM(sumYear(kutipanRows, year));
+    document.getElementById('stat-kutipan-ini').textContent   = formatRM(sumMonth(kutipanSel, year, month));
+    document.getElementById('stat-kutipan-lepas').textContent = formatRM(sumMonth(kutipanSel, lastMonthYear, lastMonth));
+    document.getElementById('stat-kutipan-tahun').textContent = formatRM(sumYear(kutipanSel, year));
 
-    document.getElementById('stat-belanja-ini').textContent   = formatRM(sumMonth(belanjaRows, year, month));
-    document.getElementById('stat-belanja-lepas').textContent = formatRM(sumMonth(belanjaRows, lastMonthYear, lastMonth));
-    document.getElementById('stat-belanja-tahun').textContent = formatRM(sumYear(belanjaRows, year));
+    document.getElementById('stat-belanja-ini').textContent   = formatRM(sumMonth(belanjaSel, year, month));
+    document.getElementById('stat-belanja-lepas').textContent = formatRM(sumMonth(belanjaSel, lastMonthYear, lastMonth));
+    document.getElementById('stat-belanja-tahun').textContent = formatRM(sumYear(belanjaSel, year));
 }
 
 // ─── Active project progress ────────────────────────────────────────────────
 async function loadActiveProject() {
-    const { data: project, error } = await db.from('infaq_projects').select('*').eq('is_active', true).single();
+    let out;
+    try {
+        out = await infaqApi('active-project');
+    } catch (e) {
+        console.error('Gagal memuatkan projek aktif:', e.message);
+        document.getElementById('project-card').style.display = 'none';
+        document.getElementById('no-project-card').style.display = '';
+        return;
+    }
+    const project = out.project;
 
-    if (error || !project) {
+    if (!project) {
         document.getElementById('project-card').style.display = 'none';
         document.getElementById('no-project-card').style.display = '';
         return;
     }
 
-    const { data: donations } = await db.from('infaq_projek_kutipan').select('jumlah').eq('project_id', project.id);
-    const terkumpul = (donations || []).reduce((s, r) => s + Number(r.jumlah), 0) + Number(project.online_total || 0);
+    const terkumpul = Number(out.total || 0) + Number(project.online_total || 0);
     const peratusan = project.target_amount > 0 ? Math.round((terkumpul / project.target_amount) * 100) : 0;
 
     document.getElementById('project-card').style.display = '';

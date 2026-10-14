@@ -12,7 +12,7 @@ Same as the parent project: pure static HTML, no build tools. Each page is fully
 
 - Data source: `khutbah/data/khutbah.json` (published by `api/publish-khutbah.js`), polled every 60 seconds via `fetch`
 - Font: Google Fonts "Poppins"
-- Background/logo images served from `multimedia.mamtj6.com`
+- Background/logo images served locally from `/media/` (`/media/img/`, `/media/logo-mamtj6/WEBP/`)
 
 ## Files
 

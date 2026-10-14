@@ -1,6 +1,6 @@
 // ─── Init ─────────────────────────────────────────────────────────────────────
 (async () => {
-    const session = await requireAuth();
+    const session = await requireKuliahAuth();
     if (!session) return;
 
     const hasKuliah = currentAdmin.role === 'super_admin' || !!currentAdmin.permissions?.kuliah;
@@ -40,24 +40,18 @@ async function loadKuliahOverview() {
     const month = now.getMonth() + 1;
     const today = todayString();
     const padMonth = String(month).padStart(2, '0');
-    const startDate = `${year}-${padMonth}-01`;
-    const endDate   = `${year}-${padMonth}-${String(lastDayOfMonth(year, month)).padStart(2, '0')}`;
 
-    const [{ data: ustaz, error: ustazErr }, { data: rows, error: schedErr }] = await Promise.all([
-        db.from('ustaz').select('id, short_name'),
-        db.from('schedule')
-            .select('date, cuti_umum, subuh_ustaz_id, maghrib_ustaz_id, subuh_pending, maghrib_pending')
-            .gte('date', startDate)
-            .lte('date', endDate)
-            .order('date'),
-    ]);
-
-    if (ustazErr || schedErr) {
+    let sched;
+    try {
+        sched = await kuliahApi('schedule', { params: { month: `${year}-${padMonth}` } });
+    } catch (e) {
         document.getElementById('kuliah-today-subuh').textContent = 'Gagal memuatkan data kuliah.';
         document.getElementById('kuliah-today-maghrib').textContent = '';
         document.getElementById('kuliah-upcoming-list').textContent = 'Gagal memuatkan data kuliah.';
         return;
     }
+
+    const ustaz = sched.ustaz, rows = sched.rows;
 
     const ustazMap = Object.fromEntries((ustaz || []).map(u => [u.id, u]));
     const scheduleRows = rows || [];
@@ -116,24 +110,19 @@ function renderUpcoming(rows, ustazMap) {
 
 async function loadKuliahLastPublished(label) {
     const el = document.getElementById('kuliah-last-published');
-    const { data, error } = await db
-        .from('activity_log')
-        .select('created_at, actor_name, actor_email')
-        .eq('action', 'publish')
-        .eq('target_label', label)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-    if (error || !data || !data.length) {
+    let out;
+    try {
+        out = await kuliahApi('last-published', { params: { label } });
+    } catch (e) {
         el.textContent = 'Belum diterbitkan bulan ini.';
         return;
     }
-    const row = data[0];
-    let who = row.actor_name;
-    if (!who) {
-        const { data: adminRow } = await db.from('admins').select('name').ilike('email', row.actor_email).single();
-        who = adminRow?.name || row.actor_email;
+    const row = out && out.row;
+    if (!row) {
+        el.textContent = 'Belum diterbitkan bulan ini.';
+        return;
     }
+    const who = row.actor_name || row.actor_email;
     el.textContent = `${formatRelativeMY(row.created_at)} oleh ${who}`;
 }
 
@@ -145,25 +134,33 @@ async function loadInfaqOverview() {
     const year  = now.getFullYear();
     const month = now.getMonth() + 1;
 
-    const [kutipanRes, belanjaRes, projectRes] = await Promise.all([
-        db.from('infaq_kutipan_mingguan').select('jumlah').eq('tahun', year).eq('bulan', month),
-        db.from('infaq_perbelanjaan_bulanan').select('jumlah').eq('tahun', year).eq('bulan', month),
-        db.from('infaq_projects').select('*').eq('is_active', true).single(),
+    const [kutipanRows, belanjaRows, activeOut] = await Promise.all([
+        infaqApi('list-kutipan').then(o => o.rows || []).catch(e => {
+            console.error('Gagal memuatkan kutipan:', e.message);
+            return [];
+        }),
+        infaqApi('list-perbelanjaan').then(o => o.rows || []).catch(e => {
+            console.error('Gagal memuatkan perbelanjaan:', e.message);
+            return [];
+        }),
+        infaqApi('active-project').catch(e => {
+            console.error('Gagal memuatkan projek aktif:', e.message);
+            return { project: null };
+        }),
     ]);
 
     const sum = (rows) => (rows || []).reduce((s, r) => s + Number(r.jumlah), 0);
-    document.getElementById('infaq-kutipan-ini').textContent = formatRM(sum(kutipanRes.data));
-    document.getElementById('infaq-belanja-ini').textContent = formatRM(sum(belanjaRes.data));
+    document.getElementById('infaq-kutipan-ini').textContent = formatRM(sum(kutipanRows.filter(r => r.tahun === year && r.bulan === month)));
+    document.getElementById('infaq-belanja-ini').textContent = formatRM(sum(belanjaRows.filter(r => r.tahun === year && r.bulan === month)));
 
-    const project = projectRes.data;
-    if (projectRes.error || !project) {
+    const project = activeOut.project;
+    if (!project) {
         document.getElementById('infaq-project-card').style.display = 'none';
         document.getElementById('infaq-no-project-card').style.display = '';
         return;
     }
 
-    const { data: donations } = await db.from('infaq_projek_kutipan').select('jumlah').eq('project_id', project.id);
-    const terkumpul  = (donations || []).reduce((s, r) => s + Number(r.jumlah), 0) + Number(project.online_total || 0);
+    const terkumpul  = Number(activeOut.total || 0) + Number(project.online_total || 0);
     const peratusan  = project.target_amount > 0 ? Math.round((terkumpul / project.target_amount) * 100) : 0;
 
     document.getElementById('infaq-project-card').style.display = '';

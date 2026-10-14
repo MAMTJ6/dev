@@ -2,7 +2,7 @@ let allUsers = [];
 let pendingDeleteEmail = null;
 
 (async () => {
-    const session = await requireAuth();
+    const session = await requireKuliahAuth();
     if (!session) return;
     if (currentAdmin.role !== 'super_admin') {
         showToast('Akses ditolak. Halaman ini hanya untuk Super Admin.', 'error');
@@ -16,12 +16,14 @@ async function loadUsers() {
     const tbody = document.getElementById('users-tbody');
     tbody.innerHTML = '<tr><td colspan="5" class="state-cell">Memuatkan...</td></tr>';
 
-    const { data, error } = await db.from('admins').select('*').order('created_at');
-    if (error) {
-        tbody.innerHTML = `<tr><td colspan="5" class="state-cell">Ralat: ${escapeHtml(error.message)}</td></tr>`;
+    let out;
+    try {
+        out = await authApi('users');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="state-cell">Ralat: ${escapeHtml(e.message)}</td></tr>`;
         return;
     }
-    allUsers = data || [];
+    allUsers = out.users || [];
     renderUsers();
 }
 
@@ -174,36 +176,35 @@ async function saveUser() {
     const btn = document.getElementById('user-save-btn');
     btn.disabled = true; btn.textContent = 'Menyimpan...';
 
-    let error;
-    if (!originalEmail) {
-        ({ error } = await db.from('admins').insert({
-            email,
-            name: name || null,
-            role,
-            permissions: role === 'super_admin' ? {} : perms,
-        }));
-    } else {
-        ({ error } = await db.from('admins').update({
-            name: name || null,
-            role,
-            permissions: role === 'super_admin' ? {} : perms,
-        }).eq('email', originalEmail));
+    try {
+        await authApi('save-user', {
+            method: 'POST',
+            body: {
+                user: {
+                    email,
+                    name: name || null,
+                    role,
+                    permissions: role === 'super_admin' ? {} : perms,
+                    originalEmail: originalEmail || undefined,
+                },
+            },
+        });
+    } catch (e) {
+        btn.disabled = false; btn.textContent = 'Simpan';
+        showToast('Ralat: ' + e.message, 'error');
+        return;
     }
 
     btn.disabled = false; btn.textContent = 'Simpan';
 
-    if (error) {
-        showToast('Ralat: ' + error.message, 'error');
-        return;
-    }
     closeUserModal();
     showToast(originalEmail ? 'Pengguna dikemaskini.' : 'Pengguna ditambah.', 'success');
     if (originalEmail) {
         const after = { name: name || null, role, permissions: role === 'super_admin' ? {} : perms };
         const diff = buildUserDiffText(before, after);
-        if (diff) await logActivity('admin_update', email, diff);
+        if (diff) await neonLog('admin_update', email, diff);
     } else {
-        await logActivity('admin_create', email, `Pengguna baharu ditambah (${roleLabelMY(role)}).`);
+        await neonLog('admin_create', email, `Pengguna baharu ditambah (${roleLabelMY(role)}).`);
     }
     await loadUsers();
 }
@@ -231,14 +232,19 @@ async function confirmDeleteUser() {
     btn.disabled = true; btn.textContent = 'Membuang...';
 
     const target = allUsers.find(u => u.email === pendingDeleteEmail);
-    const { error } = await db.from('admins').delete().eq('email', pendingDeleteEmail);
+    try {
+        await authApi('delete-user', { method: 'POST', body: { email: pendingDeleteEmail } });
+    } catch (e) {
+        btn.disabled = false; btn.textContent = 'Buang';
+        showToast('Ralat: ' + e.message, 'error');
+        return;
+    }
 
     btn.disabled = false; btn.textContent = 'Buang';
     const deletedEmail = pendingDeleteEmail;
     closeDeleteModal();
 
-    if (error) { showToast('Ralat: ' + error.message, 'error'); return; }
     showToast('Pengguna dibuang.', 'success');
-    await logActivity('admin_delete', deletedEmail, `Pengguna "${target?.name || deletedEmail}" (${roleLabelMY(target?.role)}) dibuang.`);
+    await neonLog('admin_delete', deletedEmail, `Pengguna "${target?.name || deletedEmail}" (${roleLabelMY(target?.role)}) dibuang.`);
     await loadUsers();
 }

@@ -3,9 +3,34 @@ let allStaff       = [];
 let deletingId      = null;
 let pendingPinHash  = null; // set by generateNewPin(); included in the next save
 
+// Admin roster API (Neon, via /api/staff-login?action=... cookie session).
+// Mirrors kuliahApi() in /admin/kuliah/kuliah-api.js for this endpoint.
+async function staffApi(action, { method = 'GET', body = null } = {}) {
+    const res = await fetch(`/api/staff-login?action=${encodeURIComponent(action)}`, {
+        method,
+        headers: body ? { 'Content-Type': 'application/json' } : {},
+        body: body ? JSON.stringify(body) : null,
+    });
+    const text = await res.text();
+    let data = null;
+    try {
+        data = JSON.parse(text);
+    } catch {
+        data = null;
+    }
+    if (!res.ok) {
+        if (res.status === 401) {
+            window.location.replace('/api/auth?action=login&next=' + encodeURIComponent(window.location.pathname));
+            throw new Error('sesi tamat');
+        }
+        throw new Error((data && data.error) || res.statusText);
+    }
+    return data;
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
-    const session = await requireAuth();
+    const session = await requireKuliahAuth();
     if (!session) return;
     if (!(await requireModuleAccess('staff'))) return;
     document.getElementById('add-staff-btn').style.display = canWriteModule('staff') ? '' : 'none';
@@ -13,22 +38,19 @@ async function init() {
 }
 
 // ─── Load and render ──────────────────────────────────────────────────────────
-// Deliberately excludes pin_hash/device_session_token from the SELECT —
-// RLS would technically permit fetching them too (policies are row-level,
-// not column-level), but this page has no reason to ever hold either
-// value in the browser. See admin/CLAUDE.md's Key Patterns for the
-// full reasoning (same trust-model acceptance every other module
-// already has for other sensitive fields).
+// The endpoint returns has_pin (boolean) instead of the hash itself —
+// the browser only needs to know whether a PIN is set, never the hash.
+// (Same trust-model reasoning as before: this page has no reason to ever
+// hold pin_hash/device_session_token in the browser.)
 async function loadStaff() {
-    const { data, error } = await db
-        .from('staff')
-        .select('id, full_name, phone, email, enabled, pin_hash, failed_pin_attempts, locked_until, created_at, updated_at');
-
-    if (error) {
-        showToast('Gagal memuatkan senarai staf: ' + error.message, 'error');
+    let data;
+    try {
+        data = await staffApi('list');
+    } catch (e) {
+        showToast('Gagal memuatkan senarai staf: ' + e.message, 'error');
         return;
     }
-    allStaff = (data || []).sort((a, b) =>
+    allStaff = ((data && data.staff) || []).map(r => ({ ...r, pin_hash: r.has_pin ? 'set' : null })).sort((a, b) =>
         a.full_name.localeCompare(b.full_name, undefined, { numeric: true, sensitivity: 'base' })
     );
     renderTable();
@@ -153,17 +175,15 @@ async function clearLockout() {
     if (!id) return;
     const s = allStaff.find(x => x.id === id);
 
-    const { error } = await db.from('staff')
-        .update({ failed_pin_attempts: 0, locked_until: null, updated_at: new Date().toISOString() })
-        .eq('id', id);
-
-    if (error) {
-        showToast('Gagal membuka kunci: ' + error.message, 'error');
+    try {
+        await staffApi('clear-lockout', { method: 'POST', body: { id } });
+    } catch (e) {
+        showToast('Gagal membuka kunci: ' + e.message, 'error');
         return;
     }
 
     showToast('Kunci akaun dibuka', 'success');
-    await logActivity('staff_lockout_cleared', s?.full_name || '(tidak diketahui)', 'Kunci PIN dibuka oleh admin.', 'staff_activity_log');
+    await neonLog('staff_lockout_cleared', s?.full_name || '(tidak diketahui)', 'Kunci PIN dibuka oleh admin.', 'staff_activity_log');
     document.getElementById('lock-status-group').style.display = 'none';
     await loadStaff();
 }
@@ -214,42 +234,37 @@ async function saveStaff() {
 
     const before = id ? allStaff.find(s => s.id === id) : null;
 
-    const payload = {
+    const row = {
+        id: id || undefined,
         full_name:  fullName,
         phone:      phone || null,
         email:      email || null,
         enabled,
-        updated_at: new Date().toISOString(),
     };
     if (pendingPinHash) {
-        payload.pin_hash = pendingPinHash;
-        payload.failed_pin_attempts = 0;
-        payload.locked_until = null;
+        row.pin_hash = pendingPinHash;
     }
 
-    let error;
-    if (id) {
-        ({ error } = await db.from('staff').update(payload).eq('id', id));
-    } else {
-        ({ error } = await db.from('staff').insert(payload));
+    try {
+        await staffApi('save', { method: 'POST', body: { row } });
+    } catch (e) {
+        saveBtn.disabled  = false;
+        saveBtn.textContent = 'Simpan';
+        showToast('Gagal menyimpan: ' + e.message, 'error');
+        return;
     }
 
     saveBtn.disabled  = false;
     saveBtn.textContent = 'Simpan';
 
-    if (error) {
-        showToast('Gagal menyimpan: ' + error.message, 'error');
-        return;
-    }
-
     showToast(id ? 'Staf dikemaskini' : 'Staf berjaya ditambah', 'success');
     if (id) {
         const after = { full_name: fullName, phone: phone || null, email: email || null, enabled };
         const diff = buildStaffDiffText(before, after);
-        if (diff) await logActivity('staff_update', fullName, diff, 'staff_activity_log');
-        if (pendingPinHash) await logActivity('staff_pin_reset', fullName, 'PIN dijana semula oleh admin.', 'staff_activity_log');
+        if (diff) await neonLog('staff_update', fullName, diff, 'staff_activity_log');
+        if (pendingPinHash) await neonLog('staff_pin_reset', fullName, 'PIN dijana semula oleh admin.', 'staff_activity_log');
     } else {
-        await logActivity('staff_create', fullName, 'Staf baharu ditambah.', 'staff_activity_log');
+        await neonLog('staff_create', fullName, 'Staf baharu ditambah.', 'staff_activity_log');
     }
     pendingPinHash = null;
     closeStaffModal();
@@ -280,18 +295,20 @@ async function confirmDelete() {
     btn.textContent = 'Memadam...';
 
     const target = allStaff.find(s => s.id === deletingId);
-    const { error } = await db.from('staff').delete().eq('id', deletingId);
+    try {
+        await staffApi('delete', { method: 'POST', body: { id: deletingId } });
+    } catch (e) {
+        btn.disabled  = false;
+        btn.textContent = 'Padam';
+        showToast('Gagal memadam: ' + e.message, 'error');
+        return;
+    }
 
     btn.disabled  = false;
     btn.textContent = 'Padam';
 
-    if (error) {
-        showToast('Gagal memadam: ' + error.message, 'error');
-        return;
-    }
-
     showToast('Staf berjaya dipadam', 'success');
-    await logActivity('staff_delete', target?.full_name || '(tidak diketahui)', `Staf "${target?.full_name || ''}" dipadam.`, 'staff_activity_log');
+    await neonLog('staff_delete', target?.full_name || '(tidak diketahui)', `Staf "${target?.full_name || ''}" dipadam.`, 'staff_activity_log');
     closeDeleteModal();
     await loadStaff();
 }

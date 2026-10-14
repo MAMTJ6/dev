@@ -10,7 +10,7 @@ const TICKER_MYT_OFFSET_MS = 8 * 60 * 60 * 1000; // Malaysia is UTC+8, no DST �
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 (async () => {
-    const session = await requireAuth();
+    const session = await requireKuliahAuth();
     if (!session) return;
     if (!(await requireNewsAccess())) return;
 
@@ -33,12 +33,14 @@ const TICKER_MYT_OFFSET_MS = 8 * 60 * 60 * 1000; // Malaysia is UTC+8, no DST �
 
 // ─── Load and render ──────────────────────────────────────────────────────────
 async function loadTicker() {
-    const { data, error } = await db.from('news_ticker').select('*').order('sort_order');
-    if (error) {
-        showToast('Gagal memuatkan teks berjalan: ' + error.message, 'error');
+    let out;
+    try {
+        out = await newsApi('list-ticker');
+    } catch (e) {
+        showToast('Gagal memuatkan teks berjalan: ' + e.message, 'error');
         return;
     }
-    allTicker = data || [];
+    allTicker = out.rows || [];
     renderTable();
 }
 
@@ -113,16 +115,16 @@ async function moveTicker(id, direction) {
     if (index === -1 || swapIndex < 0 || swapIndex >= allTicker.length) return;
 
     const a = allTicker[index], b = allTicker[swapIndex];
-    const [{ error: e1 }, { error: e2 }] = await Promise.all([
-        db.from('news_ticker').update({ sort_order: b.sort_order }).eq('id', a.id),
-        db.from('news_ticker').update({ sort_order: a.sort_order }).eq('id', b.id),
-    ]);
-
-    if (e1 || e2) {
-        showToast('Gagal menyusun semula: ' + (e1 || e2).message, 'error');
+    try {
+        await newsApi('reorder-ticker', { method: 'POST', body: { rows: [
+            { id: a.id, sort_order: b.sort_order },
+            { id: b.id, sort_order: a.sort_order },
+        ] } });
+    } catch (e) {
+        showToast('Gagal menyusun semula: ' + e.message, 'error');
         return;
     }
-    await logActivity('news_ticker_reorder', tickerLabelPlain(a), 'Susunan baris diubah.', 'news_activity_log');
+    await neonLog('news_ticker_reorder', tickerLabelPlain(a), 'Susunan baris diubah.', 'news_activity_log');
     await loadTicker();
     renderPreview();
 }
@@ -201,17 +203,15 @@ async function persistNewTickerOrder(movedRow) {
     });
     if (!changed.length) { renderPreview(); return; }
 
-    const results = await Promise.all(
-        changed.map(c => db.from('news_ticker').update({ sort_order: c.sort_order }).eq('id', c.id))
-    );
-    const failed = results.find(r => r.error);
-    if (failed) {
-        showToast('Gagal menyusun semula: ' + failed.error.message, 'error');
+    try {
+        await newsApi('reorder-ticker', { method: 'POST', body: { rows: changed } });
+    } catch (e) {
+        showToast('Gagal menyusun semula: ' + e.message, 'error');
         await loadTicker();
         renderPreview();
         return;
     }
-    await logActivity('news_ticker_reorder', tickerLabelPlain(movedRow), 'Susunan baris diubah (seret).', 'news_activity_log');
+    await neonLog('news_ticker_reorder', tickerLabelPlain(movedRow), 'Susunan baris diubah (seret).', 'news_activity_log');
     await loadTicker();
     renderPreview();
 }
@@ -341,42 +341,38 @@ async function saveTickerRow() {
 
     const before = id ? allTicker.find(r => r.id === id) : null;
 
-    const payload = {
+    const row = {
+        id: id || undefined,
         kind,
         message: kind === 'static' ? message : null,
         prefix:  kind === 'khutbah' ? (prefix || null) : null,
         start_at: startAt,
         end_at:   endAt,
         enabled,
-        updated_at: new Date().toISOString(),
     };
     if (!id) {
-        payload.sort_order = allTicker.length ? Math.max(...allTicker.map(r => r.sort_order || 0)) + 1 : 0;
+        row.sort_order = allTicker.length ? Math.max(...allTicker.map(r => r.sort_order || 0)) + 1 : 0;
     }
 
     const btn = document.getElementById('ticker-save-btn');
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Menyimpan...';
 
-    let error;
-    if (id) {
-        ({ error } = await db.from('news_ticker').update(payload).eq('id', id));
-    } else {
-        ({ error } = await db.from('news_ticker').insert(payload));
+    try {
+        await newsApi('save-ticker', { method: 'POST', body: { row } });
+    } catch (e) {
+        btn.disabled = false; btn.textContent = 'Simpan';
+        showToast('Gagal menyimpan: ' + e.message, 'error');
+        return;
     }
 
     btn.disabled = false; btn.textContent = 'Simpan';
 
-    if (error) {
-        showToast('Gagal menyimpan: ' + error.message, 'error');
-        return;
-    }
-
     showToast(id ? 'Baris dikemaskini' : 'Baris berjaya ditambah', 'success');
     if (id) {
-        const diff = buildTickerDiffText(before, payload);
-        if (diff) await logActivity('news_ticker_update', tickerLabelPlain(payload), diff, 'news_activity_log');
+        const diff = buildTickerDiffText(before, row);
+        if (diff) await neonLog('news_ticker_update', tickerLabelPlain(row), diff, 'news_activity_log');
     } else {
-        await logActivity('news_ticker_create', tickerLabelPlain(payload), 'Baris baharu ditambah.', 'news_activity_log');
+        await neonLog('news_ticker_create', tickerLabelPlain(row), 'Baris baharu ditambah.', 'news_activity_log');
     }
     closeModal();
     await loadTicker();
@@ -405,13 +401,18 @@ async function confirmDelete() {
     btn.disabled = true; btn.textContent = 'Memadam...';
 
     const target = allTicker.find(r => r.id === deletingTickerId);
-    const { error } = await db.from('news_ticker').delete().eq('id', deletingTickerId);
+    try {
+        await newsApi('delete-ticker', { method: 'POST', body: { id: deletingTickerId } });
+    } catch (e) {
+        btn.disabled = false; btn.textContent = 'Padam';
+        showToast('Gagal memadam: ' + e.message, 'error');
+        return;
+    }
 
     btn.disabled = false; btn.textContent = 'Padam';
-    if (error) { showToast('Gagal memadam: ' + error.message, 'error'); return; }
 
     showToast('Baris dipadam', 'success');
-    await logActivity('news_ticker_delete', target ? tickerLabelPlain(target) : '(tidak diketahui)', 'Baris dipadam.', 'news_activity_log');
+    await neonLog('news_ticker_delete', target ? tickerLabelPlain(target) : '(tidak diketahui)', 'Baris dipadam.', 'news_activity_log');
     closeDeleteModal();
     await loadTicker();
     renderPreview();
@@ -430,14 +431,19 @@ async function saveTickerSettings() {
     const btn = document.getElementById('save-settings-btn');
     btn.disabled = true; btn.textContent = 'Menyimpan...';
 
-    const { error } = await saveSetting('default_ticker_line', value);
+    try {
+        await saveSetting('default_ticker_line', value);
+    } catch (e) {
+        btn.disabled = false; btn.textContent = 'Simpan Tetapan';
+        showToast('Gagal menyimpan tetapan: ' + e.message, 'error');
+        return;
+    }
 
     btn.disabled = false; btn.textContent = 'Simpan Tetapan';
-    if (error) { showToast('Gagal menyimpan tetapan: ' + error.message, 'error'); return; }
 
     showToast('Tetapan disimpan', 'success');
     cachedSettings.default_ticker_line = value;
-    await logActivity('news_settings_update', 'default_ticker_line', `Baris lalai: ${value}`, 'news_activity_log');
+    await neonLog('news_settings_update', 'default_ticker_line', `Baris lalai: ${value}`, 'news_activity_log');
     renderPreview();
 }
 

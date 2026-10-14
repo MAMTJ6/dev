@@ -1,18 +1,46 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared across every admin/news/*.js page — permission gate, Terbitkan
 // plumbing, settings helpers, and the status computation both pages' tables
-// use. Loaded after app.js and before each page's own script, same shape as
-// admin/infaq/infaq-common.js.
+// use. Loaded after app.js (+ kuliah-api.js for requireKuliahAuth/neonLog)
+// and before each page's own script, same shape as admin/infaq/infaq-common.js.
+// Neon version (2026-10-14): settings + publish + last-published note all go
+// through /api/publish-news (cookie session) — no Supabase client, no Bearer.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Every news page calls this right after requireAuth(), e.g.:
-//   const session = await requireAuth();
+// Every news page calls this right after requireKuliahAuth(), e.g.:
+//   const session = await requireKuliahAuth();
 //   if (!session) return;
 //   if (!(await requireNewsAccess())) return;
 // Thin wrapper around app.js's generic requireModuleAccess() — same pattern
 // as infaq-common.js's requireInfaqAccess().
 async function requireNewsAccess() {
     return requireModuleAccess('news');
+}
+
+// Admin news API (Neon, via /api/publish-news?action=... cookie session).
+// Mirrors kuliahApi() in /admin/kuliah/kuliah-api.js for this endpoint.
+async function newsApi(action, { method = 'GET', params = {}, body = null } = {}) {
+    const q = new URLSearchParams({ action, ...params }).toString();
+    const res = await fetch(`/api/publish-news?${q}`, {
+        method,
+        headers: body ? { 'Content-Type': 'application/json' } : {},
+        body: body ? JSON.stringify(body) : null,
+    });
+    const text = await res.text();
+    let data = null;
+    try {
+        data = JSON.parse(text);
+    } catch {
+        data = null;
+    }
+    if (!res.ok) {
+        if (res.status === 401) {
+            window.location.replace('/api/auth?action=login&next=' + encodeURIComponent(window.location.pathname));
+            throw new Error('sesi tamat');
+        }
+        throw new Error((data && data.error) || res.statusText);
+    }
+    return data;
 }
 
 // ─── Status computation (pengumuman.js + teks-berjalan.js tables) ──────────────
@@ -77,27 +105,30 @@ function statusBadgeHtml(status) {
     return `<span class="news-status-badge ${NEWS_STATUS_CLASS[status] || ''}">${escapeHtml(status)}</span>`;
 }
 
-// ─── Settings (news_settings key/value table) ──────────────────────────────────
-// SELECT is open to any authenticated admin (RLS, see setup.sql §10); writes
-// are gated on canWriteModule('news') in the UI and admin_can_write('news')
-// in Postgres, same as every other write in this module.
-
+// ─── Settings (news_settings key/value table, via /api/publish-news) ───────────
+// Reads are open to any admin with the news module (server enforces the same
+// 'news' permission for reads and writes — simpler than the old split, and
+// both news pages already sit behind requireNewsAccess anyway).
 async function getSetting(key, fallback = '') {
-    const { data, error } = await db.from('news_settings').select('value').eq('key', key).single();
-    if (error || !data) return fallback;
-    return data.value ?? fallback;
+    try {
+        const out = await newsApi('get-settings', { params: { keys: key } });
+        return (out.settings && out.settings[key]) ?? fallback;
+    } catch (e) {
+        return fallback;
+    }
 }
 
 async function getSettings(keys) {
-    const { data, error } = await db.from('news_settings').select('key, value').in('key', keys);
-    if (error) return {};
-    const out = {};
-    (data || []).forEach(r => { out[r.key] = r.value; });
-    return out;
+    try {
+        const out = await newsApi('get-settings', { params: { keys: (keys || []).join(',') } });
+        return (out && out.settings) || {};
+    } catch (e) {
+        return {};
+    }
 }
 
 async function saveSetting(key, value) {
-    return db.from('news_settings').update({ value, updated_at: new Date().toISOString() }).eq('key', key);
+    return newsApi('save-setting', { method: 'POST', body: { key, value } });
 }
 
 // ─── Character counter (shows remaining chars once near the limit) ────────────
@@ -132,7 +163,7 @@ function attachCharCounter(inputId, counterId, limit, thresholdRatio = 0.8) {
 // Each of the 2 news data pages owns its own Terbitkan button, right next to
 // the data it publishes — same reasoning/shape as infaq's 3-target split
 // (admin/CLAUDE.md's Key Patterns). api/publish-news.js's TARGETS keys are
-// 'announcements' and 'moving-text'.
+// 'announcements' and 'moving-text'. Cookie session — no Bearer header.
 const PUBLISH_BUTTON_LABELS = {
     'publish-announcements-btn': 'Terbitkan',
     'publish-ticker-btn':        'Terbitkan',
@@ -146,27 +177,20 @@ const PUBLISH_NOTE_TARGETS = {
 async function loadLastPublishedNewsNote(action, elId) {
     const el = document.getElementById(elId);
     if (!el) return;
-    const { data, error } = await db
-        .from('news_activity_log')
-        .select('created_at, actor_name, actor_email')
-        .eq('action', action)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-    if (error) { el.style.display = 'none'; return; }
-
-    if (!data || !data.length) {
-        el.textContent = 'Belum pernah diterbitkan.';
-    } else {
-        const row = data[0];
-        let who = row.actor_name;
-        if (!who) {
-            // .ilike(), never .eq() — admins.email may not casing-match what
-            // Google OAuth returns, see admin/database.md §3.
-            const { data: adminRow } = await db.from('admins').select('name').ilike('email', row.actor_email).single();
-            who = adminRow?.name || row.actor_email;
+    try {
+        const out = await kuliahApi('last-published', {
+            params: { table: 'news_activity_log', logAction: action },
+        });
+        const row = out && out.row;
+        if (!row) {
+            el.textContent = 'Belum pernah diterbitkan.';
+        } else {
+            const who = row.actor_name || row.actor_email;
+            el.textContent = `Terakhir diterbitkan pada ${formatDateTimeMY(row.created_at)} (${formatRelativeMY(row.created_at)}) oleh ${who}`;
         }
-        el.textContent = `Terakhir diterbitkan pada ${formatDateTimeMY(row.created_at)} (${formatRelativeMY(row.created_at)}) oleh ${who}`;
+    } catch (e) {
+        el.style.display = 'none';
+        return;
     }
     el.style.display = 'block';
 }
@@ -177,20 +201,13 @@ async function publishNews(target, btnId) {
     btn.disabled  = true;
     btn.innerHTML = '<span class="spinner"></span> Menerbitkan...';
 
-    const { data: { session } } = await db.auth.getSession();
-    if (!session) {
-        showToast('Sesi tamat. Sila log masuk semula.', 'error');
-        btn.disabled = false;
-        btn.textContent = originalLabel;
-        return;
-    }
-
     try {
-        const res = await fetch(`/api/publish-news?target=${target}`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${session.access_token}` },
-        });
-        const data = await res.json();
+        const res = await fetch(`/api/publish-news?target=${target}`, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+            window.location.replace('/api/auth?action=login&next=' + encodeURIComponent(window.location.pathname));
+            return;
+        }
 
         if (!res.ok) {
             const detail = data.details ? ` (${data.details})` : '';

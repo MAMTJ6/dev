@@ -6,10 +6,10 @@ Projek ini bertujuan untuk memaparkan tarikh-tarikh penting dalam kalendar Islam
 
 ### Pautan Berkaitan
 
-*   **Laman Kalendar Utama:** [multimedia.mamtj6.com/calendar/hijri/tarikh-penting/](https://multimedia.mamtj6.com/calendar/hijri/tarikh-penting/)
+*   **Laman Kalendar Utama:** [dev.mamtj6.com/calendar/hijri/tarikh-penting/](https://dev.mamtj6.com/calendar/hijri/tarikh-penting/)
 *   **Integrasi Penuh (bersama Widget):** [www.mamtj6.com/takwim/takwim-islam](https://www.mamtj6.com/takwim/takwim-islam)
-*   **Contoh Widget Kira Detik:** [multimedia.mamtj6.com/calendar/hijri/widgets/widgets.html](https://multimedia.mamtj6.com/calendar/hijri/widgets/widgets.html)
-*   **Info Waktu dan Tarikh Hijri Terkini:** [multimedia.mamtj6.com/calendar/hijri/hari-ini/](https://multimedia.mamtj6.com/calendar/hijri/hari-ini/)
+*   **Contoh Widget Kira Detik:** [dev.mamtj6.com/calendar/hijri/widgets/widgets.html](https://dev.mamtj6.com/calendar/hijri/widgets/widgets.html)
+*   **Info Waktu dan Tarikh Hijri Terkini:** [dev.mamtj6.com/calendar/hijri/hari-ini/](https://dev.mamtj6.com/calendar/hijri/hari-ini/)
 
 ---
 
@@ -81,7 +81,7 @@ Projek ini juga menyertakan fail `widgets/widgets.html` dan `widgets/widgets2.ht
 Gunakan kod `<iframe>` di bawah dan ubah suai `src` untuk menunjuk ke lokasi `widgets.html` anda. Pemilihan acara dikawal menggunakan parameter URL `?event=`.
 
 ```html
-<iframe src="https://multimedia.mamtj6.com/calendar/hijri/widgets/widgets.html?event=NAMA_ACARA" style="width:250px; height:350px; border:none;"></iframe>
+<iframe src="https://dev.mamtj6.com/calendar/hijri/widgets/widgets.html?event=NAMA_ACARA" style="width:250px; height:350px; border:none;"></iframe>
 ```
 
 Gantikan `NAMA_ACARA` dengan kata kunci unik dari `eventName` dalam fail `data/events.json`.
@@ -92,16 +92,16 @@ Berikut adalah senarai pautan penuh untuk setiap acara yang boleh anda gunakan t
 
 | Peristiwa | Pautan Widget Penuh |
 | :--- | :--- |
-| Israk dan Mikraj | `https://multimedia.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Israk` |
-| Nisfu Sya'ban | `https://multimedia.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Nisfu` |
-| Awal Ramadan | `https://multimedia.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Ramadan` |
-| Hari Nuzul Al-Quran | `https://multimedia.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Nuzul` |
-| Hari Raya Aidilfitri | `https://multimedia.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Aidilfitri` |
-| Hari Arafah | `https://multimedia.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Arafah` |
-| Hari Raya Aidiladha | `https://multimedia.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Aidiladha` |
-| Awal Muharram | `https://multimedia.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Muharram` |
-| Hari Asyura | `https://multimedia.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Asyura` |
-| Maulidur Rasul | `https://multimedia.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Maulidur` |
+| Israk dan Mikraj | `https://dev.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Israk` |
+| Nisfu Sya'ban | `https://dev.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Nisfu` |
+| Awal Ramadan | `https://dev.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Ramadan` |
+| Hari Nuzul Al-Quran | `https://dev.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Nuzul` |
+| Hari Raya Aidilfitri | `https://dev.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Aidilfitri` |
+| Hari Arafah | `https://dev.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Arafah` |
+| Hari Raya Aidiladha | `https://dev.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Aidiladha` |
+| Awal Muharram | `https://dev.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Muharram` |
+| Hari Asyura | `https://dev.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Asyura` |
+| Maulidur Rasul | `https://dev.mamtj6.com/calendar/hijri/widgets/widgets.html?event=Maulidur` |
 
 ---
 

@@ -16,7 +16,7 @@ const SCRIPT_PROP_KEYS = {
     username: 'GITHUB_USERNAME', //multimedia-mamtj6 
     repo: 'GITHUB_REPO', //dev
     token: 'GITHUB_TOKEN',
-    baseUrl: 'IMAGE_BASE_URL', //https://multimedia.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/
+    baseUrl: 'IMAGE_BASE_URL', //https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/
     secretKey: 'SECRET_KEY' // update
   };
   

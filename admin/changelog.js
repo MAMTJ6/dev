@@ -7,7 +7,7 @@
 let allEntries = [];
 
 (async () => {
-    const session = await requireAuth();
+    const session = await requireKuliahAuth();
     if (!session) return;
     await loadChangelog();
 })();

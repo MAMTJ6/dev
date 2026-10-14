@@ -1,6 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared across every admin/infaq/*.js page — permission gate + small
-// formatters/helpers, loaded after app.js and before each page's own script.
+// formatters/helpers, loaded after app.js (+ kuliah-api.js for
+// requireKuliahAuth/neonLog) and before each page's own script.
+// Neon version (2026-10-14): CRUD + publish + last-published notes all go
+// through /api/publish-infaq (cookie session) — no Supabase client, no Bearer.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BULAN_MY = [
@@ -12,8 +15,8 @@ function formatRM(amount) {
     return 'RM ' + Number(amount || 0).toLocaleString('ms-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Every infaq page calls this right after requireAuth(), e.g.:
-//   const session = await requireAuth();
+// Every infaq page calls this right after requireKuliahAuth(), e.g.:
+//   const session = await requireKuliahAuth();
 //   if (!session) return;
 //   if (!(await requireInfaqAccess())) return;
 // Thin wrapper around app.js's generic requireModuleAccess() (added when the
@@ -23,11 +26,40 @@ async function requireInfaqAccess() {
     return requireModuleAccess('infaq');
 }
 
+// Admin infaq API (Neon, via /api/publish-infaq?action=... cookie session).
+// Mirrors kuliahApi() in /admin/kuliah/kuliah-api.js for this endpoint.
+async function infaqApi(action, { method = 'GET', params = {}, body = null } = {}) {
+    const q = new URLSearchParams({ action, ...params }).toString();
+    const res = await fetch(`/api/publish-infaq?${q}`, {
+        method,
+        headers: body ? { 'Content-Type': 'application/json' } : {},
+        body: body ? JSON.stringify(body) : null,
+    });
+    const text = await res.text();
+    let data = null;
+    try {
+        data = JSON.parse(text);
+    } catch {
+        data = null;
+    }
+    if (!res.ok) {
+        if (res.status === 401) {
+            window.location.replace('/api/auth?action=login&next=' + encodeURIComponent(window.location.pathname));
+            throw new Error('sesi tamat');
+        }
+        const err = new Error((data && data.error) || res.statusText);
+        if (data && data.count !== undefined) err.count = data.count;
+        throw err;
+    }
+    return data;
+}
+
 // ─── Publish (shared by kutipan.js / perbelanjaan.js / projek-kutipan.js) ──────
 // Each of the 3 infaq data pages owns its own Terbitkan button, right next to
 // the data it publishes (2026-07-22) — ringkasan.html used to host all three
 // centrally, moved here so editing and publishing happen on the same screen.
 // Every call site passes its own `target`/`btnId`, this stays generic.
+// Cookie session — no Bearer header.
 const PUBLISH_BUTTON_LABELS = {
     'publish-monthly-btn':      'Terbitkan',
     'publish-perbelanjaan-btn': 'Terbitkan',
@@ -41,28 +73,25 @@ const PUBLISH_NOTE_TARGETS = {
     daily:        ['publish_daily', 'last-published-daily'],
 };
 
-async function loadLastPublishedInfaqNote(action, elId) {
+async function loadLastPublishedInfaqNote(action, elId, label) {
     const el = document.getElementById(elId);
     if (!el) return;
-    const { data, error } = await db
-        .from('infaq_activity_log')
-        .select('created_at, actor_name, actor_email')
-        .eq('action', action)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-    if (error) { el.style.display = 'none'; return; }
-
-    if (!data || !data.length) {
-        el.textContent = 'Belum pernah diterbitkan.';
-    } else {
-        const row = data[0];
-        let who = row.actor_name;
-        if (!who) {
-            const { data: adminRow } = await db.from('admins').select('name').ilike('email', row.actor_email).single();
-            who = adminRow?.name || row.actor_email;
+    try {
+        const out = await kuliahApi('last-published', {
+            params: label
+                ? { table: 'infaq_activity_log', logAction: action, label }
+                : { table: 'infaq_activity_log', logAction: action },
+        });
+        const row = out && out.row;
+        if (!row) {
+            el.textContent = 'Belum pernah diterbitkan.';
+        } else {
+            const who = row.actor_name || row.actor_email;
+            el.textContent = `Terakhir diterbitkan pada ${formatDateTimeMY(row.created_at)} (${formatRelativeMY(row.created_at)}) oleh ${who}`;
         }
-        el.textContent = `Terakhir diterbitkan pada ${formatDateTimeMY(row.created_at)} (${formatRelativeMY(row.created_at)}) oleh ${who}`;
+    } catch (e) {
+        el.style.display = 'none';
+        return;
     }
     el.style.display = 'block';
 }
@@ -73,23 +102,16 @@ async function publishInfaq(target, btnId) {
     btn.disabled  = true;
     btn.innerHTML = '<span class="spinner"></span> Menerbitkan...';
 
-    const { data: { session } } = await db.auth.getSession();
-    if (!session) {
-        showToast('Sesi tamat. Sila log masuk semula.', 'error');
-        btn.disabled = false;
-        btn.textContent = originalLabel;
-        return;
-    }
-
     try {
-        const res = await fetch(`/api/publish-infaq?target=${target}`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${session.access_token}` },
-        });
-        const data = await res.json();
+        const res = await fetch(`/api/publish-infaq?target=${target}`, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+            window.location.replace('/api/auth?action=login&next=' + encodeURIComponent(window.location.pathname));
+            return;
+        }
 
         if (!res.ok) {
-            const detail = data.details ? ` (${data.status}: ${data.details})` : '';
+            const detail = data.details ? ` (${data.details})` : '';
             showToast('Gagal menerbitkan: ' + (data.error || res.statusText) + detail, 'error', 8000);
         } else {
             showToast('Berjaya diterbitkan!', 'success', 6000);
@@ -110,23 +132,18 @@ async function publishInfaqProject(projectId, btnId) {
     btn.disabled  = true;
     btn.innerHTML = '<span class="spinner"></span> Menerbitkan...';
 
-    const { data: { session } } = await db.auth.getSession();
-    if (!session) {
-        showToast('Sesi tamat. Sila log masuk semula.', 'error');
-        btn.disabled = false;
-        btn.textContent = originalLabel;
-        return;
-    }
-
     try {
         const res = await fetch(`/api/publish-infaq?target=project&project=${encodeURIComponent(projectId)}`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${session.access_token}` },
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+            window.location.replace('/api/auth?action=login&next=' + encodeURIComponent(window.location.pathname));
+            return;
+        }
 
         if (!res.ok) {
-            const detail = data.details ? ` (${data.status}: ${data.details})` : '';
+            const detail = data.details ? ` (${data.details})` : '';
             showToast('Gagal menerbitkan: ' + (data.error || res.statusText) + detail, 'error', 8000);
         } else {
             showToast('Berjaya diterbitkan!', 'success', 6000);

@@ -23,6 +23,7 @@ const LOG_SOURCES = [
             admin_update:       'Kemaskini Pengguna',
             admin_delete:       'Buang Pengguna',
             publish:            'Terbitkan Jadual',
+            publish_ustaz:      'Terbitkan Penceramah',
         },
     },
     {
@@ -85,10 +86,16 @@ const LOG_SOURCES = [
             publish_khutbah:        'Terbitkan Khutbah',
         },
     },
+    {
+        module: 'Kalendar', table: 'calendar_activity_log',
+        actionLabels: {
+            publish_calendar: 'Terbitkan Kalendar',
+        },
+    },
 ];
 
 (async () => {
-    const session = await requireAuth();
+    const session = await requireKuliahAuth();
     if (!session) return;
     if (currentAdmin.role !== 'super_admin') {
         showToast('Akses ditolak. Halaman ini hanya untuk Super Admin.', 'error');
@@ -109,11 +116,13 @@ async function populateFilterOptions() {
             </optgroup>
         `).join('');
 
-    const { data, error } = await db.from('admins').select('email, name').order('email');
-    if (error) return; // filter dropdown just stays admin-less; not worth blocking the page over
+    let users = [];
+    try {
+        users = (await authApi('users')).users || [];
+    } catch (e) { /* filter dropdown just stays admin-less; not worth blocking the page over */ }
     const adminSelect = document.getElementById('filter-admin');
     adminSelect.innerHTML = '<option value="">Semua Admin</option>' +
-        (data || []).map(u =>
+        users.map(u =>
             `<option value="${escapeHtml(u.email)}">${escapeHtml(u.name || u.email)}</option>`
         ).join('');
 }
@@ -148,18 +157,20 @@ async function loadLog() {
     tbody.innerHTML = '<tr><td colspan="6" class="state-cell">Memuatkan...</td></tr>';
 
     const results = await Promise.all(LOG_SOURCES.map(async (source) => {
-        let query = db.from(source.table).select('*').order('created_at', { ascending: false }).limit(logLimit);
-        if (filterAdmin)  query = query.eq('actor_email', filterAdmin);
-        if (filterAction) query = query.eq('action', filterAction);
-        if (filterFrom)   query = query.gte('created_at', new Date(filterFrom + 'T00:00:00').toISOString());
-        if (filterTo)     query = query.lte('created_at', new Date(filterTo + 'T23:59:59').toISOString());
+        const params = { table: source.table, limit: logLimit };
+        if (filterAdmin)  params.actor = filterAdmin;
+        if (filterAction) params.logAction = filterAction;
+        if (filterFrom)   params.from = new Date(filterFrom + 'T00:00:00').toISOString();
+        if (filterTo)     params.to = new Date(filterTo + 'T23:59:59').toISOString();
 
-        const { data, error } = await query;
-        if (error) {
-            console.error(`Gagal memuatkan log ${source.module}:`, error.message);
+        let rows;
+        try {
+            rows = (await authApi('logs', { params })).rows || [];
+        } catch (e) {
+            console.error(`Gagal memuatkan log ${source.module}:`, e.message);
             return [];
         }
-        return (data || []).map(row => ({ ...row, _module: source.module, _actionLabels: source.actionLabels }));
+        return rows.map(row => ({ ...row, _module: source.module, _actionLabels: source.actionLabels }));
     }));
 
     const merged = results

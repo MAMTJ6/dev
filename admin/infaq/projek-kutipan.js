@@ -11,7 +11,7 @@ let deletingId  = null;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 (async () => {
-    const session = await requireAuth();
+    const session = await requireKuliahAuth();
     if (!session) return;
     if (!(await requireInfaqAccess())) return;
     if (!projectId) {
@@ -26,13 +26,20 @@ let deletingId  = null;
 })();
 
 async function loadProject() {
-    const { data, error } = await db.from('infaq_projects').select('*').eq('id', projectId).single();
-    if (error || !data) {
+    let out;
+    try {
+        out = await infaqApi('get-project', { params: { id: projectId } });
+    } catch (e) {
         document.getElementById('project-header').innerHTML =
             '<p style="color:var(--text-muted)">Projek tidak dijumpai. <a href="projek.html">Kembali ke senarai projek</a>.</p>';
         return;
     }
-    project = data;
+    project = out.project;
+    if (!project) {
+        document.getElementById('project-header').innerHTML =
+            '<p style="color:var(--text-muted)">Projek tidak dijumpai. <a href="projek.html">Kembali ke senarai projek</a>.</p>';
+        return;
+    }
     document.title = `Kutipan ${project.name} — Admin MAMTJ6`;
     document.getElementById('project-name').textContent = project.name;
     document.getElementById('project-status').textContent = project.is_active ? 'Aktif' : 'Selesai';
@@ -71,28 +78,7 @@ async function handlePublishProject() {
 async function loadLastPublishedProjectNote() {
     const el = document.getElementById('last-published-project');
     if (!el || !project) return;
-    const { data, error } = await db
-        .from('infaq_activity_log')
-        .select('created_at, actor_name, actor_email')
-        .eq('action', 'publish_project')
-        .eq('target_label', project.name)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-    if (error) { el.style.display = 'none'; return; }
-
-    if (!data || !data.length) {
-        el.textContent = 'Belum pernah diterbitkan.';
-    } else {
-        const row = data[0];
-        let who = row.actor_name;
-        if (!who) {
-            const { data: adminRow } = await db.from('admins').select('name').ilike('email', row.actor_email).single();
-            who = adminRow?.name || row.actor_email;
-        }
-        el.textContent = `Terakhir diterbitkan pada ${formatDateTimeMY(row.created_at)} (${formatRelativeMY(row.created_at)}) oleh ${who}`;
-    }
-    el.style.display = 'block';
+    await loadLastPublishedInfaqNote('publish_project', 'last-published-project', project.name);
 }
 
 // ─── Load and render ──────────────────────────────────────────────────────────
@@ -115,28 +101,21 @@ async function loadDonations() {
         loadMoreBtn.textContent = 'Memuatkan...';
     }
 
-    const [pageRes, countRes] = await Promise.all([
-        db.from('infaq_projek_kutipan')
-            .select('*')
-            .eq('project_id', projectId)
-            .order('tarikh', { ascending: false })
-            .order('created_at', { ascending: false })
-            .limit(donationLimit),
-        db.from('infaq_projek_kutipan')
-            .select('id', { count: 'exact', head: true })
-            .eq('project_id', projectId),
-    ]);
+    // One call returns the page rows + the exact total (server-side) —
+    // same two facts the old code fetched with two parallel queries.
+    let page;
+    try {
+        page = await infaqApi('list-donations', { params: { project_id: projectId, limit: donationLimit } });
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="state-cell">Ralat: ${escapeHtml(e.message)}</td></tr>`;
+        return;
+    }
 
     loadMoreBtn.disabled = false;
     loadMoreBtn.textContent = 'Tunjuk 50 lagi';
 
-    if (pageRes.error) {
-        tbody.innerHTML = `<tr><td colspan="5" class="state-cell">Ralat: ${escapeHtml(pageRes.error.message)}</td></tr>`;
-        return;
-    }
-
-    currentRows = pageRes.data || [];
-    totalCount  = countRes.count ?? currentRows.length;
+    currentRows = page.rows || [];
+    totalCount  = page.total ?? currentRows.length;
     renderTable();
     loadMoreBtn.style.display = currentRows.length >= donationLimit ? '' : 'none';
     await updateProgress();
@@ -144,8 +123,16 @@ async function loadDonations() {
 
 async function updateProgress() {
     if (!project) return;
-    const { data } = await db.from('infaq_projek_kutipan').select('jumlah').eq('project_id', projectId);
-    const fizikal   = (data || []).reduce((s, r) => s + Number(r.jumlah), 0);
+    // Server-side sum over ALL rows (never the capped page) + online total —
+    // same terkumpul the publish endpoint computes via computeProjectProgress.
+    let fizikal = 0;
+    try {
+        const out = await infaqApi('list-donations', { params: { project_id: projectId, limit: 1 } });
+        fizikal = Number(out.sum || 0);
+    } catch (e) {
+        console.error('Gagal memuatkan jumlah kutipan projek:', e.message);
+        return;
+    }
     const online    = Number(project.online_total || 0);
     const terkumpul = fizikal + online;
     const peratusan = project.target_amount > 0 ? Math.round((terkumpul / project.target_amount) * 100) : 0;
@@ -222,23 +209,27 @@ async function saveOnlineTotal() {
     saveBtn.innerHTML = '<span class="spinner"></span> Menyimpan...';
 
     const before = project;
-    const payload = {
+    const row = {
         online_total: amountInput ? parseFloat(amountInput) : null,
         online_total_updated_at: dateInput || null,
-        updated_at: new Date().toISOString(),
     };
-    const { error } = await db.from('infaq_projects').update(payload).eq('id', projectId);
+    try {
+        await infaqApi('save-online-total', { method: 'POST', body: { id: projectId, ...row } });
+    } catch (e) {
+        saveBtn.disabled  = false;
+        saveBtn.textContent = 'Simpan';
+        showToast('Gagal menyimpan: ' + e.message, 'error');
+        return;
+    }
 
     saveBtn.disabled  = false;
     saveBtn.textContent = 'Simpan';
 
-    if (error) { showToast('Gagal menyimpan: ' + error.message, 'error'); return; }
-
     showToast('Jumlah terkumpul (online) dikemaskini', 'success');
-    const diff = buildOnlineTotalDiffText(before, { ...before, ...payload });
-    if (diff) await logActivity('infaq_project_update', project.name, diff, 'infaq_activity_log');
+    const diff = buildOnlineTotalDiffText(before, { ...before, ...row });
+    if (diff) await neonLog('infaq_project_update', project.name, diff, 'infaq_activity_log');
 
-    project = { ...project, ...payload };
+    project = { ...project, ...row };
     closeOnlineTotalModal();
     await updateProgress();
 }
@@ -330,27 +321,31 @@ async function saveDonation() {
     saveBtn.innerHTML = '<span class="spinner"></span> Menyimpan...';
 
     const before = id ? currentRows.find(r => r.id === id) : null;
-    const payload = {
+    const row = {
+        id: id || undefined,
         project_id: projectId, tarikh: date, jumlah: amount,
-        keterangan: keterangan || null, updated_at: new Date().toISOString(),
+        keterangan: keterangan || null,
     };
 
-    let error;
-    if (id) ({ error } = await db.from('infaq_projek_kutipan').update(payload).eq('id', id));
-    else    ({ error } = await db.from('infaq_projek_kutipan').insert(payload));
+    try {
+        await infaqApi('save-donation', { method: 'POST', body: { row } });
+    } catch (e) {
+        saveBtn.disabled  = false;
+        saveBtn.textContent = 'Simpan';
+        showToast('Gagal menyimpan: ' + e.message, 'error');
+        return;
+    }
 
     saveBtn.disabled  = false;
     saveBtn.textContent = 'Simpan';
 
-    if (error) { showToast('Gagal menyimpan: ' + error.message, 'error'); return; }
-
     showToast(id ? 'Kutipan dikemaskini' : 'Kutipan berjaya dicatat', 'success');
     const label = `${formatRM(amount)} (${date})`;
     if (id) {
-        const diff = buildDonationDiffText(before, payload);
-        if (diff) await logActivity('infaq_projek_kutipan_update', label, diff, 'infaq_activity_log');
+        const diff = buildDonationDiffText(before, row);
+        if (diff) await neonLog('infaq_projek_kutipan_update', label, diff, 'infaq_activity_log');
     } else {
-        await logActivity('infaq_projek_kutipan_create', label, keterangan || null, 'infaq_activity_log');
+        await neonLog('infaq_projek_kutipan_create', label, keterangan || null, 'infaq_activity_log');
     }
     closeModal();
     await loadDonations();
@@ -380,15 +375,20 @@ async function confirmDelete() {
     btn.textContent = 'Memadam...';
 
     const target = currentRows.find(r => r.id === deletingId);
-    const { error } = await db.from('infaq_projek_kutipan').delete().eq('id', deletingId);
+    try {
+        await infaqApi('delete-donation', { method: 'POST', body: { id: deletingId } });
+    } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Padam';
+        showToast('Gagal memadam: ' + e.message, 'error');
+        return;
+    }
 
     btn.disabled = false;
     btn.textContent = 'Padam';
 
-    if (error) { showToast('Gagal memadam: ' + error.message, 'error'); return; }
-
     showToast('Rekod kutipan dipadam', 'success');
-    if (target) await logActivity('infaq_projek_kutipan_delete', `${formatRM(target.jumlah)} (${formatDateMY(target.tarikh)})`, null, 'infaq_activity_log');
+    if (target) await neonLog('infaq_projek_kutipan_delete', `${formatRM(target.jumlah)} (${formatDateMY(target.tarikh)})`, null, 'infaq_activity_log');
     closeDeleteModal();
     await loadDonations();
 }

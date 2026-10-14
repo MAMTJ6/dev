@@ -1,5 +1,5 @@
 // Admin editor for calendar/hijri/data/events.json — same browser pattern as
-// admin/khutbah/senarai.js (Supabase-auth read gate, GitHub publish via API).
+// admin/khutbah/senarai.js (cookie-auth read gate, GitHub publish via API).
 // Events are kept in-memory, sorted by eventDate on render + publish.
 
 let calEvents = [];
@@ -23,7 +23,7 @@ function lastEventDaysLeft() {
 }
 
 (async () => {
-    const session = await requireAuth();
+    const session = await requireKuliahAuth();
     if (!session) return;
     if (!(await requireCalendarAccess())) return;
     applyWriteGate();

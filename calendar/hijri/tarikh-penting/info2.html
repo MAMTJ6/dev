@@ -60,7 +60,7 @@ html
 <body>
     <div class="container">
         <div class="header-logo">
-            <img src="https://multimedia.mamtj6.com/media/logo/mamtj6-black.webp" alt="Logo MAMTJ6">
+            <img src="/media/logo-mamtj6/WEBP/mamtj6-black.webp" alt="Logo MAMTJ6">
         </div>
         
         <div class="page-header">
@@ -143,7 +143,7 @@ html
         const daysInMalay = ["Ahad", "Isnin", "Selasa", "Rabu", "Khamis", "Jumaat", "Sabtu"];
         const specialEvents = ['Aidiladha', 'Aidilfitri', 'Ramadan'];
         document.getElementById('copyright').textContent = `© ${new Date().getFullYear()} MAMTJ6. Hak Cipta Terpelihara.`;
-        fetch('events.json')
+        fetch('../data/events.json')
             .then(response => { if (!response.ok) { throw new Error(`Ralat ${response.status}`); } return response.json(); })
             .then(jsonData => {
                 const lastUpdated = jsonData.lastUpdated;

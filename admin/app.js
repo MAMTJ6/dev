@@ -1,29 +1,24 @@
-// ─── Supabase configuration ──────────────────────────────────────────────────
-const SUPABASE_URL      = 'https://qeantrmluevgybkwgvbq.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_mhfFUZQWurQGZQ7A6DwCYQ_fALDGOnl';
+// ─── Session (Neon version — no Supabase client) ──────────────────────────────
+// Auth state lives in the HttpOnly `mamtj6_session` cookie (Google OAuth via
+// /api/auth). Pages authenticate with requireKuliahAuth() in
+// /admin/kuliah/kuliah-api.js (sets `currentAdmin` below so the sidebar and
+// gates keep working) and log with neonLog() there. This file keeps only the
+// shared UI shell: sidebar, toasts, date/format helpers, icons.
 
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// ─── Current admin (populated by requireAuth) ─────────────────────────────────
+// ─── Current admin (populated by requireKuliahAuth) ───────────────────────────
 let currentAdmin = null;
 
-// ─── Auth helpers ─────────────────────────────────────────────────────────────
+// ─── Auth entry points ────────────────────────────────────────────────────────
+// Login button (admin/index.html) → Google OAuth via /api/auth.
+function signInWithGoogle() {
+    const btn = document.getElementById('google-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Menghubungi Google...'; }
+    window.location.href = '/api/auth?action=login';
+}
 
-async function requireAuth() {
-    const { data: { session } } = await db.auth.getSession();
-    if (!session) {
-        window.location.replace('/admin/index.html');
-        return null;
-    }
-    const { data } = await db.from('admins').select('*').eq('email', session.user.email).single();
-    if (!data) {
-        await db.auth.signOut();
-        window.location.replace('/admin/index.html?denied=1');
-        return null;
-    }
-    currentAdmin = data;
-    renderSidebar();
-    return session;
+// Every sidebar's "Log Keluar" button → clears the session cookie server-side.
+function signOut() {
+    window.location.replace('/api/auth?action=logout');
 }
 
 // Used for the OAuth return URL and any "no access, go somewhere sane"
@@ -42,8 +37,8 @@ function defaultLandingPageFor(admin) {
 // ─── Module access / write gates ───────────────────────────────────────────────
 // The read half — generic version of the module-page gate every infaq page
 // already called as requireInfaqAccess() (now a 1-line wrapper around this,
-// see admin/infaq/infaq-common.js). Call right after requireAuth():
-//   const session = await requireAuth();
+// see admin/infaq/infaq-common.js). Call right after requireKuliahAuth():
+//   const session = await requireKuliahAuth();
 //   if (!session) return;
 //   if (!(await requireModuleAccess('kuliah'))) return;
 // Toasts + redirects on denial and returns false; returns true if allowed.
@@ -144,7 +139,7 @@ const MODULES = [
 // genuinely depend on the logged-in admin's permissions) are JS-rendered.
 
 // Fills #sidebar-nav with the module groups from MODULES + currentAdmin.
-// Called from requireAuth() once currentAdmin is populated. Rebuilds from
+// Called from requireKuliahAuth() once currentAdmin is populated. Rebuilds from
 // scratch every call, so unlike the old _injectSuperAdminNav()'s per-link
 // double-injection guard, this is naturally idempotent.
 function renderSidebar() {
@@ -204,27 +199,6 @@ function toggleNav() {
 function closeNav() {
     document.getElementById('sidebar')?.classList.remove('open');
     document.getElementById('sidebar-backdrop')?.classList.remove('open');
-}
-
-async function signInWithGoogle() {
-    const btn = document.getElementById('google-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Menghubungi Google...'; }
-
-    const { error } = await db.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-            redirectTo: window.location.origin + '/admin/dashboard.html'
-        }
-    });
-    if (error) {
-        showToast('Gagal log masuk: ' + error.message, 'error');
-        if (btn) { btn.disabled = false; btn.textContent = 'Log Masuk dengan Google'; }
-    }
-}
-
-async function signOut() {
-    await db.auth.signOut();
-    window.location.replace('/admin/index.html');
 }
 
 // ─── Toast notifications ──────────────────────────────────────────────────────
@@ -314,27 +288,6 @@ function formatRelativeMY(iso) {
     if (day < 30) return `${week} minggu lalu`;
     const month = Math.floor(day / 30);
     return `${month} bulan lalu`;
-}
-
-// ─── Activity log ─────────────────────────────────────────────────────────────
-// Fire-and-forget insert into activity_log (or infaq_activity_log — infaq is
-// a deliberately separate table, see admin/setup.sql), called right after a
-// mutating write already succeeded. Never throws/toasts — a logging failure
-// must not make the admin think their actual save/delete/publish failed.
-async function logActivity(action, targetLabel, detail, table = 'activity_log') {
-    if (!currentAdmin) return;
-    try {
-        const { error } = await db.from(table).insert({
-            actor_email:  currentAdmin.email,
-            actor_name:   currentAdmin.name || null,
-            action,
-            target_label: targetLabel || null,
-            detail:       detail || null,
-        });
-        if (error) console.error('logActivity gagal:', error.message);
-    } catch (e) {
-        console.error('logActivity gagal:', e);
-    }
 }
 
 // ─── Shared row-action icons ──────────────────────────────────────────────────
