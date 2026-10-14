@@ -331,16 +331,18 @@ async function handleAdmin(req, res) {
 async function handler(req, res) {
     // ── CORS ────────────────────────────────────────────────────────────────
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
 
     if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
 
-    // ── Admin CRUD branch ───────────────────────────────────────────────────
+    // ── Admin CRUD branch (GET reads + POST writes — must come BEFORE the
+    // POST-only publish guard below) ────────────────────────────────────────
     if (req.query && req.query.action) {
         return handleAdmin(req, res);
     }
+
+    if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
 
     // ── 0. Validate target ──────────────────────────────────────────────────
     const target = req.query.target;
