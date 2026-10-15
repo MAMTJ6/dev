@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-10-15",
+    "module": "Umum",
+    "ringkasan": "Dibaiki: halaman Sejarah Perubahan, Log Aktiviti dan Pengguna yang tersekat pada \"Memuatkan...\" kini memaparkan data seperti biasa.",
+    "detail": "changelog.html/userlog.html/users.html tiada skrip kuliah-api.js (requireKuliahAuth/authApi tidak ditakrif → ReferenceError sebelum load); tambah <script src=\"/admin/kuliah/kuliah-api.js\"> selepas app.js, selaras dengan semua halaman admin lain."
+  },
+  {
     "date": "2026-09-29",
     "module": "Kalendar",
     "ringkasan": "Modul Kalendar baharu di admin — sunting Tarikh Penting Islam terus dengan log masuk Google, tiada PIN berasingan.",
