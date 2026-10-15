@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-15",
+    "module": "Infaq",
+    "ringkasan": "Halaman Kutipan dan Perbelanjaan kini ada butang “Lihat Terbitan” — semak paparan awam di infaq.mamtj6.com terus dari admin.",
+    "detail": "kutipan.html → https://infaq.mamtj6.com/tabung-bulanan.html; perbelanjaan.html → https://infaq.mamtj6.com/perbelanjaan (pautan luar, tab baharu, corak butang btn-ghost sama seperti pengumuman.html); projek KIV."
+  },
+  {
+    "date": "2026-10-15",
     "module": "Umum",
     "ringkasan": "Dibaiki: halaman Sejarah Perubahan, Log Aktiviti dan Pengguna yang tersekat pada \"Memuatkan...\" kini memaparkan data seperti biasa.",
     "detail": "changelog.html/userlog.html/users.html tiada skrip kuliah-api.js (requireKuliahAuth/authApi tidak ditakrif → ReferenceError sebelum load); tambah <script src=\"/admin/kuliah/kuliah-api.js\"> selepas app.js, selaras dengan semua halaman admin lain."
