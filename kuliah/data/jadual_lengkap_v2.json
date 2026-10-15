@@ -3,7 +3,8 @@
     "2026-10": {
       "infoJadual": {
         "tajukBulan": "BULAN OKTOBER 2026",
-        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 13/10/2026"
+        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 15/10/2026",
+        "kemaskiniMasa": "15/10/2026, 10:06 PTG"
       },
       "senaraiHari": [
         {
@@ -174,9 +175,9 @@
           "date": "2026-10-15",
           "subuh": null,
           "maghrib": {
-            "nama_penceramah": "Bacaan Yasiin & Tahlil",
-            "tajuk_kuliah": null,
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/01_0.-bacaan-yasin.png",
+            "nama_penceramah": "Ustaz Muhammad Nazri",
+            "tajuk_kuliah": "Penghayatan Al-Quran",
+            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/10_9.-Ustaz-Muhammad-Nazri.jpg",
             "square_url": null
           },
           "cuti_umum": null
