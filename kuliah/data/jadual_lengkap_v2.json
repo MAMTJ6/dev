@@ -3,8 +3,8 @@
     "2026-10": {
       "infoJadual": {
         "tajukBulan": "BULAN OKTOBER 2026",
-        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 15/10/2026",
-        "kemaskiniMasa": "15/10/2026, 10:06 PTG"
+        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 18/10/2026",
+        "kemaskiniMasa": "18/10/2026, 6:48 PTG"
       },
       "senaraiHari": [
         {
@@ -317,12 +317,7 @@
         {
           "date": "2026-10-27",
           "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Ustaz Abdul Aziz",
-            "tajuk_kuliah": "Terjemahan Al-Azkar Imam An-Nawawi",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/05_4.-Ustaz-Abdul-Aziz.jpg",
-            "square_url": null
-          },
+          "maghrib": null,
           "cuti_umum": null
         },
         {
