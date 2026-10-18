@@ -375,12 +375,17 @@
       "infoJadual": {
         "tajukBulan": "BULAN NOVEMBER 2026",
         "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 18/10/2026",
-        "kemaskiniMasa": "18/10/2026, 12:38 PTG"
+        "kemaskiniMasa": "18/10/2026, 12:54 PTG"
       },
       "senaraiHari": [
         {
           "date": "2026-11-01",
-          "subuh": null,
+          "subuh": {
+            "nama_penceramah": "Ustaz Badrul Hisham",
+            "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
+            "poster_url": "/kuliah/assets/poster-kuliah/14-ust-badrul-1789184625268.jpg",
+            "square_url": null
+          },
           "maghrib": {
             "nama_penceramah": "Ustaz Amir",
             "tajuk_kuliah": "a. Kitab Fekah : Syarah Safinah An-Naja; b. Kitab Tasawuf",
