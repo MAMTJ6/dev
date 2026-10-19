@@ -1,14 +1,41 @@
 {
   "current": {
-    "friday_date": "2026-10-02",
-    "source_url": "https://mufti.pahang.gov.my/khutbah/2026/02-oktober-2026m-20-rabiulakhir-1448h",
+    "friday_date": "2026-10-09",
+    "source_url": "https://mufti.pahang.gov.my/khutbah/2026/09-oktober-2026m-27-rabiulakhir-1448h",
     "siri_text": "MIMBAR JUMAAT SIRI 10 | 2026",
-    "title": "Menghadapi Jenayah Kewangan dan Scammer",
-    "date_text": "02 OKTOBER 2026M | 20 RABIULAKHIR 1448H",
+    "title": "Kesihatan Mental",
+    "date_text": "09 OKTOBER 2026M | 27 RABIULAKHIR 1448H",
     "main_text": null,
-    "manual_override": true
+    "manual_override": false
   },
   "history": [
+    {
+      "friday_date": "2026-10-23",
+      "source_url": "https://mufti.pahang.gov.my/khutbah/2026/23-oktober-2026m-12-jamadilawal-1448h",
+      "siri_text": "MIMBAR JUMAAT SIRI 10 | 2026",
+      "title": null,
+      "date_text": null,
+      "main_text": null,
+      "manual_override": false
+    },
+    {
+      "friday_date": "2026-10-16",
+      "source_url": "https://mufti.pahang.gov.my/khutbah/2026/16-oktober-2026m-05-jamadilawal-1448h",
+      "siri_text": "MIMBAR JUMAAT SIRI 10 | 2026",
+      "title": null,
+      "date_text": null,
+      "main_text": null,
+      "manual_override": true
+    },
+    {
+      "friday_date": "2026-10-09",
+      "source_url": "https://mufti.pahang.gov.my/khutbah/2026/09-oktober-2026m-27-rabiulakhir-1448h",
+      "siri_text": "MIMBAR JUMAAT SIRI 10 | 2026",
+      "title": "Kesihatan Mental",
+      "date_text": "09 OKTOBER 2026M | 27 RABIULAKHIR 1448H",
+      "main_text": null,
+      "manual_override": false
+    },
     {
       "friday_date": "2026-10-02",
       "source_url": "https://mufti.pahang.gov.my/khutbah/2026/02-oktober-2026m-20-rabiulakhir-1448h",
@@ -37,5 +64,5 @@
       "manual_override": true
     }
   ],
-  "updated_at": "2026-09-28T06:39:22.535Z"
+  "updated_at": "2026-10-19T01:26:54.897Z"
 }
