@@ -263,8 +263,8 @@ async function saveUstaz() {
 
     const before = id ? allUstaz.find(u => u.id === id) : null;
 
-    // Poster images go to the GitHub repo via /api/upload (Neon has no
-    // Storage). URL input or repo path is used as-is.
+    // Poster images go to Supabase Storage via /api/upload (Neon has no
+    // Storage — returns an instant public https URL). URL input is used as-is.
     async function resolveImage(file, urlInput, folder, label) {
         if (file && urlInput) return { err: `Pilih sama ada muat naik fail atau URL ${label}, bukan kedua-dua.` };
         if (file) {

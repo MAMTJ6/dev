@@ -6,6 +6,8 @@ Everything about the Supabase (PostgreSQL) database backing `admin/`: how to set
 
 The canonical setup script is [`setup.sql`](setup.sql) — this document explains *why* it's structured the way it is and walks through using it. **Never run parts of it blindly without reading what they do first** (per its own header comment).
 
+**2026-10-24 Neon note (read first):** the backend has migrated off Supabase — canonical schema is now `admin/neon-schema.sql` (`setup.sql` kept as `setup.sql.legacy`). DB reads/writes go through `api/*.js` on Neon with a cookie session (`lib/db.js` `requireAdmin`); there is no RLS anymore, enforcement is server-side per module. Supabase is back only as Storage-only (new project, public buckets `posters`/`profiles`/`announcements`, `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` in Vercel) — `api/upload.js` uploads there and stores the public URL in Neon. Do NOT delete those two env vars (reverses `TODO-NEON.md`'s old "delete Supabase envs" instruction). The `kuliah-assets`/`news-assets` bucket docs in §2/§4 below describe the pre-Neon layout and are stale pending a full rewrite.
+
 ---
 
 ## 1. Setup from scratch

@@ -86,8 +86,9 @@ yet, by deliberate choice (see `admin/infaq/`'s own history in
 ## Tech Stack
 
 - Pure HTML5, CSS3, Vanilla JS (ES6+) — no npm, no build tools
-- Supabase — PostgreSQL, Auth (Google OAuth), Storage (kuliah-assets bucket)
-- Vercel — static hosting + `api/publish.js` serverless function
+- Neon — PostgreSQL for all tables (canonical schema `admin/neon-schema.sql`; `admin/setup.sql` kept as `setup.sql.legacy`). No RLS — per-module write access is enforced server-side in `api/*.js` via `lib/db.js` `requireAdmin(req, moduleKey)`; browser session is a cookie (`mamtj6_session`, Google OAuth via `/api/auth`), no Supabase client anywhere in `admin/` since 2026-10-15
+- Supabase — Storage ONLY since 2026-10-24 (separate new project, buckets `posters`/`profiles`/`announcements`, public read): `api/upload.js` uploads there and returns an instant public https URL, stored as TEXT in Neon. Was GitHub-repo paths (`/kuliah/assets/...`, live only after Vercel redeploy) before — see `admin/DEV_NOTES.MD` session 24 for why that broke
+- Vercel — static hosting + `api/*.js` serverless functions
 - GitHub — published data store (JSON pushed via API from publish endpoint)
 
 ## File Structure
@@ -596,6 +597,7 @@ All sidebar styling (colors, fixed positioning, the off-canvas mobile transform)
 - `pendingRemovePoster` → `poster_url: null`
 - New file or URL entered → `poster_url: newValue`
 - Neither → omit `poster_url` from payload (preserves existing)
+- Server-side (`api/kuliah.js` `ustaz-save`, fixed 2026-10-24): an omitted key keeps the existing DB value (SELECTs the prev row, coalesces); only an explicit `null` clears. Before this fix the UPDATE wrote `poster_url = ${r.poster_url || null}`, so any edit without a new upload silently wiped the stored URL — the "neither → omit" contract above was a lie until the server honored it. Same rule must hold for `square_url`/`profile_url`.
 
 **Square poster (`ustaz.square_url`, added 2026-07-29) — a second, independent field, same 3-way save logic duplicated verbatim, not shared:** built ahead of any actual consumer, for a future square-ratio use case (`kuliah/paparan/` or similar signage variant hasn't been designed yet). `ustaz.html`'s modal has its own upload/URL/current-image/remove group below the existing poster fields; `ustaz.js` tracks it with a fully separate `pendingRemoveSquarePoster` flag and `newSquareUrl` variable — deliberately not refactored into one shared upload helper with `poster_url`'s block, since the two fields' upload paths differ (`posters/` vs `posters-square/`, same `kuliah-assets` bucket — the bucket's RLS gates on `bucket_id` only, no path-prefix policy, so no new Storage policy was needed) and keeping them fully parallel keeps a future "square poster only" or "landscape poster only" behavior change from accidentally touching both. `api/publish.js` forwards `square_url` into the published JSON's `subuh`/`maghrib` ustaz objects exactly where `poster_url` already is (same `|| null` fallback) — unused by any current page, but avoids a second `api/publish.js` change whenever a consumer is finally built. **If you build the square poster's actual display use case, decide then whether the duplicated save logic is worth collapsing into a shared helper — don't preemptively refactor now.**
 

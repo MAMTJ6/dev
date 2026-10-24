@@ -240,8 +240,8 @@ async function saveAnnouncement() {
 
     let newImageUrl = null;
     if (imageFile) {
-        // Repo upload via /api/upload (Neon has no Storage) — returns a
-        // /news/assets/announcements/... path to store in Neon.
+        // Supabase Storage upload via /api/upload (Neon has no Storage) —
+        // returns an instant public https URL to store in Neon.
         try {
             newImageUrl = await uploadImage('announcements', imageFile);
         } catch (e) {
