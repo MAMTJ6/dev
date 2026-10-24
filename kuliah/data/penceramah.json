@@ -1,125 +1,125 @@
 {
-  "tarikhKemasKini": "24/9/2026",
-  "count": 20,
+  "tarikhKemasKini": "24/10/2026",
+  "count": 21,
   "penceramah": [
     {
       "id": "4e9e65fa-e1fb-4096-964f-9f45d7c6f1ca",
       "full_name": "Ustaz Ahmad Termizi",
       "jawatan": null,
       "tajuk_kuliah": "Sesi Tajwid & Talaqqi Al-Quran",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/1-ust-termizi-1789196726414.png"
+      "profile_url": "/kuliah/assets/profiles/1-ust-termizi-1789196726414.png"
     },
     {
       "id": "923dc5c1-cfec-4462-b5a2-81c66a29b729",
       "full_name": "Ustaz Hisyamuddin",
       "jawatan": null,
       "tajuk_kuliah": "Nasihat Agama dan Wasiat Iman",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/2-ust-hisyam-1789196738526.png"
+      "profile_url": "/kuliah/assets/profiles/2-ust-hisyam-1789196738526.png"
     },
     {
       "id": "8ba9960c-dcfb-4fcf-98e3-8256767a719f",
       "full_name": "Ustaz Shahruwardi",
       "jawatan": "Pegawai Penyelaras Masjid Daerah (Takmir) Daerah Maran",
       "tajuk_kuliah": "Tuhfah Ar-Raghibin",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/3-ust-shahruwardi-1789196747766.png"
+      "profile_url": "/kuliah/assets/profiles/3-ust-shahruwardi-1789196747766.png"
     },
     {
       "id": "a7a93e2b-d99f-4598-8e80-2b097f673128",
       "full_name": "Ustaz Abdul Aziz",
       "jawatan": "Al-Fadhil Qadhi Daerah Temerloh",
       "tajuk_kuliah": "Terjemahan Al-Azkar Imam An-Nawawi",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/4-ust-abd-aziz-1789196756567.png"
+      "profile_url": "/kuliah/assets/profiles/4-ust-abd-aziz-1789196756567.png"
     },
     {
       "id": "e6ba434f-0aef-4dc6-969d-cd828ad259e5",
       "full_name": "Ustaz Anuar Suhaimi",
       "jawatan": null,
       "tajuk_kuliah": "132 Langkah Penyucian Jiwa",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/5-ust-anuar-1789196765789.png"
+      "profile_url": "/kuliah/assets/profiles/5-ust-anuar-1789196765789.png"
     },
     {
       "id": "f0adc05e-b60b-43ba-9663-e5d9293cffd5",
       "full_name": "Ustaz Hairul Azam",
       "jawatan": null,
       "tajuk_kuliah": "Tadabbur ayat-ayat Surah Al-Baqarah",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/6-ust-hairul-azam-1789196774777.png"
+      "profile_url": "/kuliah/assets/profiles/6-ust-hairul-azam-1789196774777.png"
     },
     {
       "id": "2fbaf769-6753-4422-90f2-1a762266929f",
       "full_name": "Ustaz Mohd Fikri",
       "jawatan": "Timbalan Qadhi Daerah Jengka / Imam 1 Masjid Daerah Jengka",
       "tajuk_kuliah": "Pedoman Sembahyang Berjemaah",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/7-ust-fikri-1789196797681.png"
+      "profile_url": "/kuliah/assets/profiles/7-ust-fikri-1789196797681.png"
     },
     {
       "id": "69e8acfa-49ad-4963-aa70-8b6dbc9edc51",
       "full_name": "Ustaz Mohd Firdaus Azmy",
       "jawatan": null,
       "tajuk_kuliah": "Tadabbur ayat-ayat Surah Al-Anfal",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/8-ust-firdaus-azmy-1789196834933.png"
+      "profile_url": "/kuliah/assets/profiles/8-ust-firdaus-azmy-1789196834933.png"
     },
     {
       "id": "88942395-2070-4c8c-bce9-bd87e66a9bdf",
       "full_name": "Ustaz Muhammad Nazri",
       "jawatan": null,
       "tajuk_kuliah": "Penghayatan Al-Quran",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/9-ust-nazri-1789196856427.png"
+      "profile_url": "/kuliah/assets/profiles/9-ust-nazri-1789196856427.png"
     },
     {
       "id": "8d00f282-16b1-462e-b18b-f695c2722198",
       "full_name": "Ustaz Muhammad Fathmi",
       "jawatan": null,
       "tajuk_kuliah": "Syarah Hadis 40 Imam Nawawi",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/10-ust-fathmi-1789196870393.png"
+      "profile_url": "/kuliah/assets/profiles/10-ust-fathmi-1789196870393.png"
     },
     {
       "id": "77cf48fb-0933-45dc-8af0-cecdbcadb319",
       "full_name": "Ustaz Nazir",
       "jawatan": null,
       "tajuk_kuliah": "Mukhtasar Tanbih Al-Ghafilin",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/11-ust-nazir-1789196880109.png"
+      "profile_url": "/kuliah/assets/profiles/11-ust-nazir-1789196880109.png"
     },
     {
       "id": "6d7b09bb-6b6b-46b2-a344-1399f60e36af",
       "full_name": "Ustaz Wahid",
       "jawatan": "Mudir Maahad Tahfiz Berhala Gantang",
       "tajuk_kuliah": "Umum & Semasa",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/12-ust-wahid-1789196890380.png"
+      "profile_url": "/kuliah/assets/profiles/12-ust-wahid-1789196890380.png"
     },
     {
       "id": "409cdbfc-dd79-42e9-bf1c-8280e56e4a9c",
       "full_name": "Ustaz Abd Maarof",
       "jawatan": null,
       "tajuk_kuliah": "Penawar Hati",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/13-ust-maarof-1789196899992.png"
+      "profile_url": "/kuliah/assets/profiles/13-ust-maarof-1789196899992.png"
     },
     {
       "id": "7ff4649a-ed32-4105-bab3-1311a2d5d418",
       "full_name": "Ustaz Badrul Hisham",
       "jawatan": "Pengetua, SMA Pelangai",
       "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/14-ust-badrul-1789196912660.png"
+      "profile_url": "/kuliah/assets/profiles/14-ust-badrul-1789196912660.png"
     },
     {
       "id": "402e8ec6-1642-43cf-8e4a-b2cb8f6f9f98",
       "full_name": "Ustaz Nawawi",
       "jawatan": null,
       "tajuk_kuliah": "Ringkasan Riyadhus Solihin",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/15-ust-nawawi-1789196929015.png"
+      "profile_url": "/kuliah/assets/profiles/15-ust-nawawi-1789196929015.png"
     },
     {
       "id": "5e9b76b7-db85-4efb-89cd-d6417d4b8b6c",
       "full_name": "Ustaz Amir",
       "jawatan": null,
       "tajuk_kuliah": "a. Kitab Fekah : Syarah Safinah An-Naja; b. Kitab Tasawuf",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/16-ust-amir-1789196996508.png"
+      "profile_url": "/kuliah/assets/profiles/16-ust-amir-1789196996508.png"
     },
     {
       "id": "6f84c3b5-fc42-4745-a7e5-1ca9592a0bd1",
       "full_name": "YAA Dato' Sri Haji Abdul Rahman",
       "jawatan": "Mantan Ketua Hakim Syarie Pahang",
       "tajuk_kuliah": "Fekah Kesihatan Dalam Ibadah Dan Sunnah Nabi",
-      "profile_url": "https://qeantrmluevgybkwgvbq.supabase.co/storage/v1/object/public/kuliah-assets/profiles/17-hj-abd-rahman-1789197171495.png"
+      "profile_url": "/kuliah/assets/profiles/17-hj-abd-rahman-1789197171495.png"
     },
     {
       "id": "a123268c-a6e8-4cb7-a0c7-7c5af09c4534",
@@ -133,6 +133,13 @@
       "full_name": "Sdr Ahmad Syafiq Muhaimin",
       "jawatan": null,
       "tajuk_kuliah": "Syamail Muhammadiah",
+      "profile_url": null
+    },
+    {
+      "id": "f326900e-1094-4e7e-bcbc-6bd149db8616",
+      "full_name": "Ustaz Anas",
+      "jawatan": null,
+      "tajuk_kuliah": "Periwayatan Lengkap Peristiwa Isra' & Mi'raj",
       "profile_url": null
     },
     {
