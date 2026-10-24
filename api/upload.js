@@ -1,19 +1,24 @@
-// POST /api/upload — poster/image upload to the GitHub repo (replaces
-// Supabase Storage, which Neon doesn't have).
+// POST /api/upload — image upload to Supabase Storage (Neon has no Storage).
 // Body: { folder: 'posters'|'posters-square'|'profiles'|'announcements',
 //         filename, contentBase64, contentType }
-// Returns: { path } — repo-relative public path to store in Neon.
+// Returns: { path } — public https URL to store in Neon (TEXT column).
 // Limits: file < 4MB (Vercel body cap ~4.5MB incl. base64 overhead).
 // Needs: kuliah write perm (posters/profiles) or news write perm (announcements).
+// Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (server only, never exposed).
 const { requireAdmin } = require('../lib/db');
 
+// folder -> { bucket, prefix } in Supabase Storage (all buckets Public).
 const FOLDERS = {
-  'posters': 'kuliah/assets/poster-kuliah',
-  'posters-square': 'kuliah/assets/poster-kuliah',
-  'profiles': 'kuliah/assets/profiles',
-  'announcements': 'news/assets/announcements',
+  'posters':         { bucket: 'posters',       prefix: '' },
+  'posters-square':  { bucket: 'posters',       prefix: 'square/' },
+  'profiles':       { bucket: 'profiles',      prefix: '' },
+  'announcements':   { bucket: 'announcements', prefix: '' },
 };
 const MAX_BASE64 = 6_000_000;
+const ALLOWED_EXT = /\.(png|jpe?g|webp|gif|svg)$/i;
+const ALLOWED_MIME = new Set([
+  'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml',
+]);
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -24,8 +29,8 @@ module.exports = async function handler(req, res) {
   const canNews = admin.role === 'super_admin' || (admin.role === 'editor' && admin.permissions && admin.permissions.news === true);
 
   const b = req.body || {};
-  const dir = FOLDERS[b.folder];
-  if (!dir) return res.status(400).json({ error: 'bad folder' });
+  const target = FOLDERS[b.folder];
+  if (!target) return res.status(400).json({ error: 'bad folder' });
   if (b.folder === 'announcements' ? !canNews : !canKuliah) {
     return res.status(403).json({ error: 'Forbidden' });
   }
@@ -33,34 +38,46 @@ module.exports = async function handler(req, res) {
     return res.status(413).json({ error: 'file too large (max ~4MB)' });
   }
   const safe = String(b.filename || '').replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 80);
-  if (!safe || !/\.(png|jpe?g|webp|gif|svg)$/i.test(safe)) {
+  if (!safe || !ALLOWED_EXT.test(safe)) {
     return res.status(400).json({ error: 'bad filename (png/jpg/webp/gif/svg only)' });
   }
-
-  const githubToken = process.env.GITHUB_TOKEN;
-  const githubRepo = process.env.GITHUB_REPO;
-  if (!githubToken || !githubRepo) {
-    return res.status(500).json({ error: 'Server misconfiguration: missing GitHub env vars' });
+  const contentType = String(b.contentType || '');
+  if (contentType && !ALLOWED_MIME.has(contentType)) {
+    return res.status(400).json({ error: 'bad content type' });
   }
 
-  const filePath = `${dir}/${Date.now()}-${safe}`;
-  const put = await fetch(`https://api.github.com/repos/${githubRepo}/contents/${filePath}`, {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${githubToken}`,
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      message: `[Admin] Upload ${safe}`,
-      content: b.contentBase64,
-      branch: 'main',
-    }),
-  });
+  const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfiguration: missing Supabase env vars' });
+  }
+
+  let buf;
+  try {
+    buf = Buffer.from(b.contentBase64, 'base64');
+  } catch {
+    return res.status(400).json({ error: 'bad base64' });
+  }
+  if (!buf.length) return res.status(400).json({ error: 'empty file' });
+
+  const objectPath = `${target.prefix}${Date.now()}-${safe}`;
+  const put = await fetch(
+    `${supabaseUrl}/storage/v1/object/${target.bucket}/${objectPath}`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+        'Content-Type': contentType || 'application/octet-stream',
+        'x-upsert': 'false',
+      },
+      body: buf,
+    }
+  );
   if (!put.ok) {
-    const err = await put.json().catch(() => ({}));
-    return res.status(500).json({ error: 'upload failed', details: err.message || put.statusText });
+    const errText = await put.text().catch(() => '');
+    return res.status(500).json({ error: 'upload failed', details: errText.slice(0, 300) || put.statusText });
   }
-  return res.status(200).json({ path: `/${filePath}` });
+  const publicUrl = `${supabaseUrl}/storage/v1/object/public/${target.bucket}/${objectPath}`;
+  return res.status(200).json({ path: publicUrl });
 };
