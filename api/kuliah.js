@@ -142,7 +142,14 @@ module.exports = async function handler(req, res) {
       if (!r.short_name || !r.full_name) return res.status(400).json({ error: 'short_name + full_name required' });
       try {
         if (r.id) {
-          await sql()`UPDATE ustaz SET short_name = ${r.short_name}, full_name = ${r.full_name}, tajuk_kuliah = ${r.tajuk_kuliah || null}, poster_url = ${r.poster_url || null}, square_url = ${r.square_url || null}, jawatan = ${r.jawatan || null}, profile_url = ${r.profile_url || null}, is_public = ${r.is_public !== false}, updated_at = NOW() WHERE id = ${r.id}`;
+          // Preserve existing image URLs when the client omits the key
+          // (edit without new upload). Explicit null = remove.
+          const cur = await sql()`SELECT poster_url, square_url, profile_url FROM ustaz WHERE id = ${r.id} LIMIT 1`;
+          const prev = cur[0] || {};
+          const posterUrl = ('poster_url' in r) ? (r.poster_url || null) : (prev.poster_url || null);
+          const squareUrl = ('square_url' in r) ? (r.square_url || null) : (prev.square_url || null);
+          const profileUrl = ('profile_url' in r) ? (r.profile_url || null) : (prev.profile_url || null);
+          await sql()`UPDATE ustaz SET short_name = ${r.short_name}, full_name = ${r.full_name}, tajuk_kuliah = ${r.tajuk_kuliah || null}, poster_url = ${posterUrl}, square_url = ${squareUrl}, jawatan = ${r.jawatan || null}, profile_url = ${profileUrl}, is_public = ${r.is_public !== false}, updated_at = NOW() WHERE id = ${r.id}`;
         } else {
           await sql()`INSERT INTO ustaz (short_name, full_name, tajuk_kuliah, poster_url, square_url, jawatan, profile_url, is_public) VALUES (${r.short_name}, ${r.full_name}, ${r.tajuk_kuliah || null}, ${r.poster_url || null}, ${r.square_url || null}, ${r.jawatan || null}, ${r.profile_url || null}, ${r.is_public !== false})`;
         }
