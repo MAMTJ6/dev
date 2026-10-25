@@ -3,8 +3,8 @@
     "2026-10": {
       "infoJadual": {
         "tajukBulan": "BULAN OKTOBER 2026",
-        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 23/10/2026",
-        "kemaskiniMasa": "23/10/2026, 4:51 PTG"
+        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 25/10/2026",
+        "kemaskiniMasa": "25/10/2026, 2:53 PTG"
       },
       "senaraiHari": [
         {
@@ -300,12 +300,18 @@
         },
         {
           "date": "2026-10-25",
-          "subuh": null,
+          "subuh": {
+            "nama_penceramah": "Ustaz Badrul Hisham",
+            "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
+            "poster_url": "/kuliah/assets/poster-kuliah/14-ust-badrul-1789184625268.jpg",
+            "square_url": null
+          },
           "maghrib": {
             "nama_penceramah": "Ustaz Amir",
             "tajuk_kuliah": "a. Kitab Fekah : Syarah Safinah An-Naja; b. Kitab Tasawuf",
             "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/17_16.-Ustaz-Amir.jpg",
-            "square_url": null
+            "square_url": null,
+            "ditangguhkan": true
           },
           "cuti_umum": null
         },
@@ -323,7 +329,12 @@
         {
           "date": "2026-10-27",
           "subuh": null,
-          "maghrib": null,
+          "maghrib": {
+            "nama_penceramah": "Ustaz Anas Amri Bin Shahir",
+            "tajuk_kuliah": "Periwayatan Lengkap Peristiwa Isra' & Mi'raj",
+            "poster_url": "https://nhppzgsxfvrpkpgabybi.supabase.co/storage/v1/object/public/posters/1792828735816-20.-Ustaz-Anas.jpg",
+            "square_url": null
+          },
           "cuti_umum": null
         },
         {
