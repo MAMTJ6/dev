@@ -386,8 +386,8 @@
     "2026-11": {
       "infoJadual": {
         "tajukBulan": "BULAN NOVEMBER 2026",
-        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 18/10/2026",
-        "kemaskiniMasa": "18/10/2026, 12:54 PTG"
+        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 25/10/2026",
+        "kemaskiniMasa": "25/10/2026, 2:59 PTG"
       },
       "senaraiHari": [
         {
@@ -677,9 +677,9 @@
           "date": "2026-11-24",
           "subuh": null,
           "maghrib": {
-            "nama_penceramah": "Ustaz Abdul Aziz",
-            "tajuk_kuliah": "Terjemahan Al-Azkar Imam An-Nawawi",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/05_4.-Ustaz-Abdul-Aziz.jpg",
+            "nama_penceramah": "Ustaz Anas Amri Bin Shahir",
+            "tajuk_kuliah": "Periwayatan Lengkap Peristiwa Isra' & Mi'raj",
+            "poster_url": "https://nhppzgsxfvrpkpgabybi.supabase.co/storage/v1/object/public/posters/1792828735816-20.-Ustaz-Anas.jpg",
             "square_url": null
           },
           "cuti_umum": null
