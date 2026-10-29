@@ -34,6 +34,15 @@
       "start_at": "2026-10-02T10:00",
       "end_at": "2026-10-16T23:30",
       "enabled": true
+    },
+    {
+      "title": "Program Komuniti",
+      "heading": "Pengumuman",
+      "text": "MAJLIS BACAAN YASIN, TAHLIL ARWAH, DOA SELAMAT PEPERIKSAAN 2026 DAN SOLAT HAJAT.\n29/10/2026 bermula dari maghrib",
+      "image_url": "https://nhppzgsxfvrpkpgabybi.supabase.co/storage/v1/object/public/announcements/1793254467545-Program-Komuniti_29102026.jpg",
+      "start_at": "2026-10-29T06:00",
+      "end_at": "2026-10-29T23:00",
+      "enabled": true
     }
   ]
 }
