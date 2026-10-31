@@ -9,6 +9,107 @@ the prompt (DO NOT DELETE)
 Session memo for the `news/` announcement display. Read `news/CLAUDE.md` for
 the architecture reference; this file is the session-to-session context.
 
+## Session 5 — 2026-10-31 (Xibo dynamic-duration experiment: built `news/test/`, pushed it, then proved dynamic timing is impossible on CMS 1.8.13)
+
+### What happened, in order
+
+1. User pasted `news/xibo_open_source_signage_dynamic_duration_guide.md`
+   (a guide doc, still untracked in git as of this memo) and asked for a
+   test news page with dynamic duration, suggesting `news/test/`.
+2. Two Plan-mode rounds: first agreed per-type durations (text 8s / image
+   12s / combo 15s); second pivoted on the user's correction — Xibo was
+   showing ONE duration for the whole page (the sum). Agreed: slideshow
+   plays all active slides, ONE signal at cycle end, total = dynamic sum
+   of active slides.
+3. Built `news/test/` (4 files, all isolated from live `news/`):
+   `index.html` (+ black HUD: type, slide i/n, per-slide countdown, cycle
+   total + cycle remaining, Xibo status), `test.js` (copy of
+   `news/script.js` logic + `getDurationForItem()` + `getCycleTotal()` +
+   `notifyXibo()`; cycle list+total frozen per cycle, mid-cycle publishes
+   apply next cycle), `fixture.json` (3 always-active items, one per kind),
+   `README.md` (browser + Xibo test steps).
+4. Verified headlessly (repo's `vm` + DOM-stub pattern): durations
+   8000/12000/15000, `?ann=2` pins single image mode, `?duration=1`
+   3-slide cycle totals 3000ms with exactly ONE `XiboPageRendered()` at
+   cycle end. Committed `dc31a71`, pushed to `origin/main` (Vercel
+   auto-deploys `dev.mamtj6.com`).
+5. User's Xibo screenshots showed the Webpage widget form has NO "Use
+   Duration from Page" option — only Link/Name/"Set a duration?"/"Open
+   Natively". Plus the "1 minute" default. Researched Xibo docs + community:
+   page-driven duration was an unimplemented 2018 feature request; the
+   supported dynamic mechanism is the `xiboIC` interactive-control library
+   (v3+ only: `setWidgetDuration`/`expireNow` via player localhost:9696).
+6. User pasted CMS About page: **1.8.13 (2018)**. Verdict delivered:
+   dynamic duration is impossible on this stack — the CMS number is the
+   final word. Recommended fixed durations: 3 widgets at 8/12/15s, or 1
+   widget at 35s. Explained the xiboIC-on-v3+ path for later, and how to
+   find versions (login footer / Administration → About / Displays page).
+7. User: "so no option for dynamic now" — confirmed: dynamic *content*,
+   fixed *timing*. Wrap-up requested.
+
+### The dynamic — read this to re-sync
+
+- **Plan-mode vs Build-mode boundaries held the whole session.**
+   Discussion-only rounds produced the per-type-then-cycle-total design
+   before any file was written; user explicitly released each gate
+   ("ok test per type (a)", "sum by the total active slide", "go").
+   Keep respecting the "explain-only, don't touch code" gear from
+   session 2 — it was invoked explicitly twice here via Plan mode.
+- **User communicates via screenshots as ground truth, again.**
+   The Xibo widget-form screenshots answered in one glance what text
+   couldn't (no duration-from-page option exists). Same lesson as every
+   prior session: treat their screenshots as the spec.
+- **Language: user asked for English-only chat this session**
+   ("chat with me in english only") — prior sessions were Malay display
+   text + English dev discussion. Default to English in chat unless told
+   otherwise; repo content itself stays Malay.
+- Mood: investigative then accepting — the dynamic-duration hope deflated
+   on the 1.8.13 fact, no frustration, closed cleanly with wrap-up.
+
+### Bugs found & fixed (and the lessons)
+
+**BUG 1 (mine, PowerShell) — `&&` chaining in the `shell` tool.**
+`node --check ... && echo ...` fails: the tool runs PowerShell, where
+`&&` is not a statement separator. *Lesson:* **never `&&` in `shell`
+commands — use `;` and check `$LASTEXITCODE`.**
+**BUG 2 (mine, quoting) — `node -e` with nested quotes under PowerShell**
+broke with `Invalid or unexpected token`. *Fix that stuck:* write the
+check to a temp file (`C:\...\Temp\opencode\*.js`) and run it — also
+avoids re-quoting on every iteration. *Lesson:* **one-off node probes go
+in a temp script file, not `-e`, on this Windows/PowerShell setup.**
+**BUG 3 (process hygiene) — a 12s `setTimeout` in the check script kept
+node alive past the assertions**, making output look delayed. Harmless
+here, but unref/clear timers in throwaway harnesses. *Lesson:* same as
+any kiosk timer: know what keeps your process alive.
+**BUG 4 (env) — no git identity configured** (`user.name`/`user.email`
+both empty); commit failed until set repo-local to match prior history
+(`mamtj6dev` / `mamtj6.dev@gmail.com`). *Lesson:* check identity before
+committing in a fresh environment.
+
+### Open threads (owners)
+
+- **User to test on Xibo** with fixed durations (3 widgets 8/12/15 or 1
+  widget 35s at `https://dev.mamtj6.com/news/test/`) — result not yet
+  reported as of this memo.
+- **`news/xibo_open_source_signage_dynamic_duration_guide.md` is
+  untracked** — deliberately left out of commit `dc31a71`. Commit it if
+  the user wants it kept in history.
+- **xiboIC dynamic path needs CMS/player v3+ upgrade** (backup, Docker
+  deploy, per-player verification). `getCycleTotal()` in `news/test/`
+  is already the number that would feed `setWidgetDuration()`.
+- Carried over, still open: default.svg's dropped Arabic greeting
+  (intentional? — session 4), Vercel edge-latency vs hard-refresh
+  hypothesis (unconfirmed), ticker `TICKER_LINE_MAX` literal duplication.
+- No `admin/changelog.json` entry for `news/test/` — dev-only scaffold,
+  not a user-visible change, per the repo's changelog rule.
+
+### Current state at session end (session 5)
+
+Live `news/` untouched — all work is in new `news/test/`, committed and
+pushed (`dc31a71`), awaiting user's Xibo test with fixed durations.
+Standing fact for this folder going forward: **CMS 1.8.13 cannot do
+page-driven duration; timing is always the CMS-side fixed number.**
+
 ## Session 4 — 2026-07-29, later the same day (pure Q&A, no code — the display's own refresh mechanism, why hard-refresh sometimes needs a few tries, and a "what is a dynamic site" detour)
 
 ### What happened, in order
