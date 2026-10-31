@@ -16,7 +16,7 @@
       "image_url": "/news/default.svg",
       "start_at": "2020-01-01",
       "end_at": "2030-12-31",
-      "enabled": false
+      "enabled": true
     },
     {
       "title": "TEST combo",
