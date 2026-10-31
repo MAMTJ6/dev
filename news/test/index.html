@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ujian Dynamic Duration — News</title>
+    <link rel="stylesheet" href="/news/style.css">
+    <style>
+        /* Test-only HUD — not part of production news/style.css */
+        #test-hud {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 50;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.85);
+            color: #fff;
+            font-family: system-ui, sans-serif;
+            font-size: 13px;
+        }
+        #test-hud .pill {
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 999px;
+            padding: 2px 10px;
+            white-space: nowrap;
+        }
+        #test-hud .pill b { color: #fbbf24; }
+        #test-hud #hud-signal {
+            background: #064e3b;
+            border-color: #10b981;
+        }
+        #test-hud #hud-signal.fired {
+            background: #065f46;
+            outline: 2px solid #10b981;
+        }
+        #display-container { padding-top: 40px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <div id="test-hud">
+        <span class="pill">type: <b id="hud-type">-</b></span>
+        <span class="pill">slide: <b id="hud-slide">-</b></span>
+        <span class="pill">duration: <b id="hud-duration">-</b></span>
+        <span class="pill">slide left: <b id="hud-countdown">-</b></span>
+        <span class="pill">cycle: <b id="hud-cycle">-</b></span>
+        <span class="pill" id="hud-signal">Xibo: <b id="hud-xibo">not checked</b></span>
+        <span class="pill">mode: <b id="hud-mode">-</b></span>
+    </div>
+    <div id="display-container">
+        <div class="slide-layer" id="layer-a"></div>
+        <div class="slide-layer" id="layer-b"></div>
+        <div id="message" class="message-box" style="display:none">
+            <h1>Masjid Al-Mukhlisin<br>Taman Jaya 6</h1>
+        </div>
+    </div>
+    <script src="/news/test/test.js"></script>
+    <script>
+        initNewsTestDisplay();
+    </script>
+</body>
+</html>

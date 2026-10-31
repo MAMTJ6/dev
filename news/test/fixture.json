@@ -1,0 +1,31 @@
+{
+  "default_image": "/news/default.svg",
+  "announcements": [
+    {
+      "title": "TEST text",
+      "heading": "Ujian Teks Sahaja",
+      "text": "Ini slaid teks 8 saat. Selepas 8 saat halaman akan hantar isyarat XiboPageRendered.",
+      "start_at": "2020-01-01",
+      "end_at": "2030-12-31",
+      "enabled": true
+    },
+    {
+      "title": "TEST image",
+      "heading": "",
+      "text": "",
+      "image_url": "/news/default.svg",
+      "start_at": "2020-01-01",
+      "end_at": "2030-12-31",
+      "enabled": true
+    },
+    {
+      "title": "TEST combo",
+      "heading": "Ujian Kombo",
+      "text": "Ini slaid kombo 15 saat. Imej + bar kapsyen di bawah.",
+      "image_url": "/news/default.svg",
+      "start_at": "2020-01-01",
+      "end_at": "2030-12-31",
+      "enabled": true
+    }
+  ]
+}
