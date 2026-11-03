@@ -43,6 +43,14 @@
       "start_at": "2026-10-29T06:00",
       "end_at": "2026-10-29T23:00",
       "enabled": true
+    },
+    {
+      "title": "Program Komuniti",
+      "heading": "Pengumuman",
+      "text": "12/11/2026 Majlis bacaan yasiin, tahlil dan doa selamat anjuran keluarga bani Alias.",
+      "start_at": "2026-11-03T00:00",
+      "end_at": "2026-11-12T22:00",
+      "enabled": true
     }
   ]
 }
