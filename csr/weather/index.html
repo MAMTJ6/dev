@@ -1731,10 +1731,10 @@
       } else {
         if (thunder.status === 'rejected') console.warn('[weather] data.gov.my warnings failed:', thunder.reason?.message);
         if (rain.status === 'rejected') console.warn('[weather] rain proxy failed (expected under local static server):', rain.reason?.message);
-        const combined = [
+        const combined = dedupeAcrossSources([
           ...(thunder.status === 'fulfilled' ? thunder.value : []),
           ...(rain.status === 'fulfilled' ? rain.value : []),
-        ];
+        ]);
         const state = computeWarningStateNationwide(combined, STATE_CONFIG);
         nationwideDistrictTiers = state.districts;
         nationwideStateWash = state.stateWash;
@@ -1779,10 +1779,10 @@
         } else {
           if (thunder.status === 'rejected') console.warn('[weather] data.gov.my warnings failed:', thunder.reason?.message);
           if (rain.status === 'rejected') console.warn('[weather] rain proxy failed (expected under local static server):', rain.reason?.message);
-          activeWarnings = [
+          activeWarnings = dedupeAcrossSources([
             ...(thunder.status === 'fulfilled' ? thunder.value : []),
             ...(rain.status === 'fulfilled' ? rain.value : []),
-          ];
+          ]);
           const state = computeWarningState(activeWarnings, cfg);
           warningScope = state.scope;
           warningDistricts = state.districts;

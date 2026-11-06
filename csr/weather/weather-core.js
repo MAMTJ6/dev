@@ -75,12 +75,12 @@ function escapeRegExp(str) {
 // Severity tiers. MET's hujan berterusan ladder is Waspada (yellow) <
 // Buruk (orange) < Bahaya (red). 'amaran' is the untiered Ribut Petir/
 // Hujan Lebat blue from data.gov.my bulletins (their headings use
-// different wording, not this three-step ladder), ranked between
-// Waspada and Buruk so a rain-Buruk district keeps its orange even if
-// a thunderstorm warning also covers it — highest rank wins per
+// different wording, not this three-step ladder), ranked BELOW Waspada
+// so any Hujan Berterusan tier keeps its own colour even if
+// a thunderstorm warning also covers the same district — highest rank wins per
 // district. Colours match MET Malaysia's own warning-map palette.
 // ---------------------------------------------------------------------
-const TIER_RANK = { waspada: 1, amaran: 2, buruk: 3, bahaya: 4 };
+const TIER_RANK = { amaran: 1, waspada: 2, buruk: 3, bahaya: 4 };
 const TIER_COLORS = {
   waspada: { fill: '#fdfe00', border: '#000000' },
   amaran: { fill: '#2516d2', border: '#000000' },
@@ -151,11 +151,11 @@ function fetchWithTimeout(url, ms = 5000) {
 // Warning parsing — thunderstorm (data.gov.my free text)
 // ---------------------------------------------------------------------
 
-// Splits "Kuantan, Pekan dan Rompin" / "Kuantan, Pekan and Rompin"
-// into ["Kuantan", "Pekan", "Rompin"].
+// Splits "Kuantan, Pekan dan Rompin" / "Kuantan, Pekan and Rompin" /
+// "Labuk & Sugut" into ["Kuantan", "Pekan", "Rompin"].
 function splitDistrictList(capture) {
   return capture
-    .split(/,|\bdan\b|\band\b/i)
+    .split(/,|\bdan\b|\band\b|&/i)
     .map(s => s.trim())
     .filter(Boolean);
 }
@@ -232,7 +232,7 @@ function splitTopLevelGroups(text) {
 function extractRegionGroupDistricts(segment, cfg) {
   const resolved = new Set();
   splitTopLevelGroups(segment).forEach(token => {
-    const m = token.match(/^(.*?)\s*\(([^)]+)\)$/);
+    const m = token.match(/^(.*?)\s*\(([^)]+)\)/);
     if (m) {
       splitDistrictList(m[2]).forEach(raw => {
         const d = resolveDistrictName(raw, cfg);
@@ -404,6 +404,11 @@ function parseRainForState(textEn, cfg) {
   const parenRe = new RegExp(escapeRegExp(cfg.apiName) + '\\s*\\(([^)]+)\\)', 'i');
   const bareRe = new RegExp('\\b' + escapeRegExp(cfg.apiName) + '\\b', 'i');
 
+  const groupRe = new RegExp(
+    escapeRegExp(cfg.apiName) + '\\s*:\\s*([\\s\\S]*?)(?=\\s*\u2022|\\s+until\\b|\\s+sehingga\\b|$)',
+    'i'
+  );
+
   sections.forEach(section => {
     const tier = rainSectionTier(section);
     const m = section.match(parenRe);
@@ -411,8 +416,23 @@ function parseRainForState(textEn, cfg) {
       splitDistrictList(m[1]).map(raw => resolveDistrictName(raw, cfg)).filter(Boolean).forEach(d => {
         if (!tiers[d] || TIER_RANK[tier] > TIER_RANK[tiers[d]]) tiers[d] = tier;
       });
-    } else if (bareRe.test(section)) {
-      if (!stateTier || TIER_RANK[tier] > TIER_RANK[stateTier]) stateTier = tier;
+    } else {
+      // Sabah/Sarawak division-grouped shape, e.g. "Sabah: Kudat,
+      // Sandakan (Paitan, ...)" — same structure extractStateDistricts()
+      // handles for thunderstorm bulletins, but tier-aware here.
+      const gm = section.match(groupRe);
+      if (gm) {
+        const resolved = extractRegionGroupDistricts(gm[1], cfg);
+        if (resolved.length) {
+          resolved.forEach(d => {
+            if (!tiers[d] || TIER_RANK[tier] > TIER_RANK[tiers[d]]) tiers[d] = tier;
+          });
+        } else if (bareRe.test(section)) {
+          if (!stateTier || TIER_RANK[tier] > TIER_RANK[stateTier]) stateTier = tier;
+        }
+      } else if (bareRe.test(section)) {
+        if (!stateTier || TIER_RANK[tier] > TIER_RANK[stateTier]) stateTier = tier;
+      }
     }
   });
 
@@ -564,11 +584,58 @@ function resolveDuplicateBulletins(warnings, cfg) {
 // matching MET's own printed poster, instead of naively slicing from the
 // first "sehingga" to the end of the string — which silently dropped
 // every item after the first.
+// Splits on Arabic ("1) 2)") AND Roman ("I) II)") item markers — MET
+// uses Roman numerals for multi-part rain bulletins (live 2026-11-06:
+// "I) ... Kelantan ... II) ... Sabah ..."), Arabic for multi-state
+// thunderstorm ones. District parens never match: they hold names,
+// not a bare numeral/roman + ")" + space at an item start. The
+// (?<![IVXLCDM\d]) guard stops "II)" splitting twice (second "I)" is
+// part of the longer numeral, not a new item).
 function splitBulletinItems(text) {
   const str = String(text || '').trim();
   if (!str) return [];
-  const parts = str.split(/(?=\d+\)\s+)/).map(s => s.trim()).filter(Boolean);
-  return parts.length > 1 ? parts : [str];
+  const parts = str.split(/(?<![IVXLCDM\d])(?=(?:\d+|[IVXLCDM]+)\)\s+)/).map(s => s.trim()).filter(Boolean);
+  if (parts.length <= 1) return [str];
+  // Multi-item bulletin: the text before the first marker is just the
+  // repeated heading (e.g. "AMARAN HUJAN BERTERUSAN (WASPADA) I) ..."),
+  // not an item — drop any leading fragment without its own marker.
+  const items = parts.filter(s => /^(?:\d+|[IVXLCDM]+)\)\s+/.test(s));
+  return items.length ? items : [str];
+}
+
+// Defensive "Continuous Rain" catch on the data.gov.my (thunderstorm)
+// source. Live 2026-11-06: this endpoint now returns CONTINUOUS RAIN
+// WARNING bulletins too — previously it carried thunderstorm types only.
+// MET proxy stays the primary rain source; this only re-labels the
+// free-endpoint copy so it lands in the Hujan Berterusan card (yellow)
+// instead of being misread as a blue Ribut Petir warning.
+function isContinuousRainHeading(w) {
+  return /continuous rain/i.test(w.heading_en || w.text_en || '') ||
+    /hujan berterusan/i.test(w.heading_bm || w.text_bm || '');
+}
+
+// Re-labels free-endpoint rain bulletins to source rain. Runs AFTER
+// resolveDuplicateBulletins so the duplicate-row collapse still treats
+// them as thunder rows with per-state pickRowForSegment. No precomputed
+// stateScope here — stateScopeOf() falls back to parseRainForState()
+// when stateScope is absent, covering single and nationwide paths.
+function reclassifyRainWarnings(warnings) {
+  return warnings.map(w => !isContinuousRainHeading(w) ? w : { ...w, source: 'rain' });
+}
+
+// Cross-source duplicate: the same rain bulletin can now arrive twice —
+// once via the free endpoint (reclassified above) and once via the MET
+// proxy — with only whitespace differences. Keeps the first copy so
+// cards do not show a misleading "+1 lagi" for one bulletin.
+function dedupeAcrossSources(warnings) {
+  const seen = new Set();
+  const norm = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  return warnings.filter(w => {
+    const key = (w.source === 'rain' ? 'rain:' : '') + norm(w.heading_bm || w.heading_en) + '|' + norm(w.text_bm || w.text_en);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 async function fetchActiveWarnings(cfg) {
@@ -576,13 +643,14 @@ async function fetchActiveWarnings(cfg) {
   if (!resp.ok) throw new Error('HTTP ' + resp.status);
   const data = await resp.json();
   const rows = Array.isArray(data) ? data : [];
-  return resolveDuplicateBulletins(rows.filter(isWarningActive), cfg);
+  return reclassifyRainWarnings(resolveDuplicateBulletins(rows.filter(isWarningActive), cfg));
 }
 
 // Rain warnings carry a precomputed `stateScope` (SEKSYEN-aware);
 // thunderstorm/other data.gov.my warnings are parsed on the fly.
 function stateScopeOf(w, cfg) {
-  return w.source === 'rain' ? w.stateScope : extractStateDistricts(w, cfg);
+  if (w.source === 'rain') return w.stateScope || parseRainForState(w.text_en || w.text_bm, cfg);
+  return extractStateDistricts(w, cfg);
 }
 
 function computeWarningState(warnings, cfg) {
