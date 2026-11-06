@@ -2,16 +2,16 @@
   "ringkasan": {
     "kutipan": {
       "bulanIni": {
+        "bulan": "NOV",
+        "jumlah": 1888
+      },
+      "bulanLepas": {
         "bulan": "OKT",
         "jumlah": 8618
       },
-      "bulanLepas": {
-        "bulan": "SEP",
-        "jumlah": 6465
-      },
       "tahunIni": {
         "tahun": 2026,
-        "jumlah": 94093.8
+        "jumlah": 95981.8
       },
       "tahunLepas": {
         "tahun": 2025,
@@ -21,6 +21,16 @@
   },
   "paparanBulanIni": {
     "Tahun": 2026,
+    "Bulan": "NOV",
+    "Minggu1": 1888,
+    "Minggu2": 0,
+    "Minggu3": 0,
+    "Minggu4": 0,
+    "Minggu5": 0,
+    "JumlahBulanan": 1888
+  },
+  "paparanBulanLepas": {
+    "Tahun": 2026,
     "Bulan": "OKT",
     "Minggu1": 1751,
     "Minggu2": 1626,
@@ -28,16 +38,6 @@
     "Minggu4": 1900,
     "Minggu5": 1646,
     "JumlahBulanan": 8618
-  },
-  "paparanBulanLepas": {
-    "Tahun": 2026,
-    "Bulan": "SEP",
-    "Minggu1": 1679,
-    "Minggu2": 1370,
-    "Minggu3": 1634,
-    "Minggu4": 1782,
-    "Minggu5": 0,
-    "JumlahBulanan": 6465
   },
   "graf": {
     "2024": {
@@ -129,10 +129,10 @@
         6986,
         6465,
         8618,
-        0,
+        1888,
         0
       ]
     }
   },
-  "tarikhKemaskini": "2026-10-30T08:08:42.727Z"
+  "tarikhKemaskini": "2026-11-06T07:57:01.940Z"
 }
