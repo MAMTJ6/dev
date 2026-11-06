@@ -716,3 +716,29 @@ Two honest registers again, the same shape this file has already named for Sessi
 2. `webpage-plan.md` was not touched this session — same recurring gap flagged every session since Session 6, now missing this entire session's work too.
 3. The fullscreen text/card scale-up feature (`.is-fullscreen`, root `font-size:140%`) and the district-label outline restyle are both genuinely new, user-facing changes that haven't been mentioned as "done" anywhere outside this file yet — worth surfacing if a future session goes looking for a changelog.
 4. Given the shape of this session (small polish → one hard multi-round bug), and this file's own observation that terse "why"/screenshot-only reports are consistently real bugs in this folder — if the mobile real-device check surfaces something, expect it to be another genuine, findable root cause, not a red herring.
+
+---
+
+## Session 14 — free-endpoint rain reclassify, rain-beats-thunder priority, Sabah gaps, and a parked division-expansion fix (2026-11-06)
+
+### The vibe
+
+Fast live-data-driven session, all anchored to real bulletins active that day (thunder valid 13:00-16:00, rain valid 8-11 Nov). User supplied raw API JSON + screenshots of both our map and MET’s own maps side by side — the Session-9 "screenshot IS the spec" pattern again. One "ok push" and two "go" commits landed mid-session; remote had unrelated [Admin] commits drift in once (merged clean). Ended in Plan mode (SPA state-switching discussion + MET-map comparison), then a parked fix recorded here for the next window.
+
+### What shipped (all committed + pushed)
+
+1. **Free-endpoint rain reclassified to yellow.** data.gov.my now returns CONTINUOUS RAIN bulletins (new vs the verified-absent July/Aug finding) — root code misfiled them as blue thunder. Added `isContinuousRainHeading()` + `reclassifyRainWarnings()` (runs AFTER `resolveDuplicateBulletins` so per-state pick still works), `stateScopeOf()` falls back to `parseRainForState()` when no precomputed scope exists, `dedupeAcrossSources()` kills the proxy/free-endpoint double-count ("+1 lagi") in both refresh paths. `parseRainForState()` also gained the Sabah/Sarawak division-group branch + `extractRegionGroupDistricts()` token regex now tolerates trailing prose ("Sandakan (...) within the period of Monday") and skips digit-containing date fragments. `splitDistrictList()` splits on `&` (Labuk & Sugut).
+2. **Rain-beats-thunder priority.** `TIER_RANK` was `{waspada:1, amaran:2}` so thunder blue beat light-rain yellow on overlap — now `{amaran:1, waspada:2, buruk:3, bahaya:4}`. Map, state wash, card accent, tier-row sorting all follow. Thunder card stays on top, rain card below; only the severity winner changed, not layout.
+3. **Roman-numeral bulletin split.** Rain uses `I) II)` items; `splitBulletinItems()` only knew `1) 2)`, silently dropping the Sabah half. Now splits Arabic + Roman with a `(?<![IVXLCDM\d])` guard (stops `II)` splitting twice) and drops the heading-preamble fragment. Verified against the live 2-item rain text: Kelantan/Terengganu + Sabah rows both render.
+4. **Kecil Lojing + Beluran gaps.** `kelantan.combined = {"Gua Musang": ["Kecil Lojing"]}` + new `expandCombinedDistricts()` (parent hit paints children; direct child hit keeps own/higher tier) wired into both compute paths. Sabah aliases: `paitan/labuk/sugut/labuk & sugut → Beluran`. Sabah rain now resolves Kudat, Beluran, Telupid, Sandakan, Kinabatangan with zero unrecognized warnings. MET rain map confirms Beluran yellow.
+5. **Still open (data gaps, NOT fixed):** `Membakut`, `Sook` (thunder Interior), `Hulu Selangor → Ulu Selangor` alias missing, bare `West Coast`/`Interior` division tokens paint nothing, Kalabakan-blue seen once with no bulletin naming it (needs `?raw` at that moment if it recurs).
+
+### PARKED — needs more data before adjusting (reminder for next session)
+
+MET rain map proves bare `Kudat` = full Bahagian Kudat (Pitas + Kota Marudu yellow) — but the fix is deliberately NOT built yet; user wants more evidence first. Thunder side is contradictory: `Tawau (Lahad Datu)` pairs with division-wide blue while `Sandakan (Tongod)` pairs narrow — version skew not ruled out. **Gather before adjusting:** same-time pairs of Sabah bulletin text + MET blue-map screenshot. Proposed mechanism when evidence lands: `divisions` table in Sabah `states.json` (Kudat/Sandakan/Tawau/Interior+Pedalaman/West Coast+Pantai Barat) + bare-token expansion in `extractRegionGroupDistricts()`; paren-tokens stay paren-only unless evidence says otherwise. Also on the table from Plan-mode discussion: SPA-style state switching (dropdown + map-click, no reload; hover/zoom never switch) — user has the plan, build needs a go.
+
+### Process notes
+
+- metapi2 docs (https://metapi2.met.gov.my/docs) load fine and now claim public no-auth access (60/min) — contradicts the METToken-mandatory assumption behind `api/weather-warning.js`. Proxy works today, so no change; but if it 502s again, try a no-token direct call before blaming the token. Postman recipe given: GET + `locationcategoryid=STATE` param, `Authorization: METToken <token>` header only if 401.
+- `?raw` (page overlay) beats guessing URLs for live debugging; `?state=X&debugzoom=1` for framing questions.
+- PowerShell here has no `head`/`wc`/`python3`, and `&` breaks inline `node -e` quoting — write patch scripts to the Temp dir and run them instead.
