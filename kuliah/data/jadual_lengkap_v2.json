@@ -4,7 +4,7 @@
       "infoJadual": {
         "tajukBulan": "BULAN NOVEMBER 2026",
         "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 6/11/2026",
-        "kemaskiniMasa": "6/11/2026, 3:57 PTG"
+        "kemaskiniMasa": "6/11/2026, 8:03 PTG"
       },
       "senaraiHari": [
         {
@@ -85,7 +85,8 @@
             "nama_penceramah": "Ustaz Badrul Hisham",
             "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
             "poster_url": "/kuliah/assets/poster-kuliah/14-ust-badrul-1789184625268.jpg",
-            "square_url": null
+            "square_url": null,
+            "ditangguhkan": true
           },
           "maghrib": null,
           "cuti_umum": null
@@ -96,7 +97,8 @@
             "nama_penceramah": "Ustaz Badrul Hisham",
             "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
             "poster_url": "/kuliah/assets/poster-kuliah/14-ust-badrul-1789184625268.jpg",
-            "square_url": null
+            "square_url": null,
+            "ditangguhkan": true
           },
           "maghrib": {
             "nama_penceramah": "Ustaz Amir",
