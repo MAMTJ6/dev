@@ -54,6 +54,7 @@
     "apiName": "Kelantan",
     "stateCode": "KTN",
     "districts": ["Machang", "Kecil Lojing", "Jeli", "Pasir Puteh", "Kuala Krai", "Tumpat", "Bachok", "Kota Bharu", "Tanah Merah", "Gua Musang", "Pasir Mas"],
+    "combined": { "Gua Musang": ["Kecil Lojing"] },
     "aliases": {},
     "zoom": 9.40,
     "center": [5.4054, 102.3598],
@@ -145,7 +146,7 @@
     "apiName": "Sabah",
     "stateCode": "SBH",
     "districts": ["Kuala Penyu", "Ranau", "Kota Belud", "Kunak", "Tawau", "Semporna", "Beaufort", "Sipitang", "Beluran", "Sandakan", "Kinabatangan", "Telupid", "Kota Kinabalu", "Lahad Datu", "Pitas", "Putatan", "Keningau", "Tambunan", "Papar", "Kudat", "Kota Marudu", "Tongod", "Nabawan", "Tenom", "Penampang", "Kalabakan", "Tuaran"],
-    "aliases": {},
+    "aliases": {"paitan": "Beluran", "labuk": "Beluran", "sugut": "Beluran", "labuk & sugut": "Beluran"},
     "zoom": 8.40,
     "center": [5.7774, 117.8072],
     "mobile": { "zoom": 7.20, "center": [5.1227, 117.1685] }

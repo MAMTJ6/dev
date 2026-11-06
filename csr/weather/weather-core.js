@@ -232,6 +232,11 @@ function splitTopLevelGroups(text) {
 function extractRegionGroupDistricts(segment, cfg) {
   const resolved = new Set();
   splitTopLevelGroups(segment).forEach(token => {
+    // Date/prose fragments can leak in when the group capture runs past
+    // "within the period of Monday, 9 November 2026" (groupRe only stops
+    // at until/sehingga/end). District names never contain digits — skip
+    // such tokens before they hit resolveDistrictName as noise.
+    if (/\d/.test(token)) return;
     const m = token.match(/^(.*?)\s*\(([^)]+)\)/);
     if (m) {
       splitDistrictList(m[2]).forEach(raw => {
@@ -653,6 +658,25 @@ function stateScopeOf(w, cfg) {
   return extractStateDistricts(w, cfg);
 }
 
+// Parent→children expansion for MET-combined areas: MET names the parent
+// district but means the whole area (live 2026-11-06: "Gua Musang" covers
+// "Kecil Lojing", a separate polygon in jakim.geojson — painting only the
+// parent leaves a white hole). cfg.combined = { Parent: [child, ...] }
+// (see kelantan in states.json). A child hit directly keeps its own tier;
+// only an unhit-or-lower child inherits the parent tier.
+function expandCombinedDistricts(districts, cfg) {
+  const combined = (cfg && cfg.combined) || {};
+  Object.entries(combined).forEach(([parent, children]) => {
+    const pt = districts.get(parent);
+    if (!pt) return;
+    (children || []).forEach(child => {
+      const ct = districts.get(child);
+      if (!ct || TIER_RANK[pt] > TIER_RANK[ct]) districts.set(child, pt);
+    });
+  });
+  return districts;
+}
+
 function computeWarningState(warnings, cfg) {
   const districts = new Map(); // district → highest tier across all warnings
   let scope = null;            // null | 'district' | 'state'
@@ -673,6 +697,8 @@ function computeWarningState(warnings, cfg) {
       if (!cur || TIER_RANK[t] > TIER_RANK[cur]) districts.set(d, t);
     });
   });
+
+  expandCombinedDistricts(districts, cfg);
 
   return { scope, districts, stateTier };
 }
@@ -758,6 +784,21 @@ function computeWarningStateNationwide(warnings, allStates) {
       entry.sources.add(w.source === 'rain' ? 'rain' : 'amaran');
       perState.set(code, entry);
     });
+  });
+
+  Object.values(allStates).filter(s => s.apiName && s.stateCode).forEach(stateCfg => {
+    const before = districts.size;
+    expandCombinedDistricts(districts, stateCfg);
+    // children adopted via combined() count as covered districts
+    if (districts.size !== before && perState.has(stateCfg.stateCode)) {
+      const entry = perState.get(stateCfg.stateCode);
+      stateCfg.combined && Object.entries(stateCfg.combined).forEach(([parent, children]) => {
+        if (districts.has(parent)) (children || []).forEach(c => {
+          if (districts.has(c)) districtSets.get(stateCfg.stateCode).add(c);
+        });
+      });
+      entry.districtCount = districtSets.get(stateCfg.stateCode).size;
+    }
   });
 
   perState.forEach((entry, code) => { entry.districtCount = districtSets.get(code).size; });
