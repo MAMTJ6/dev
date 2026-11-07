@@ -3,8 +3,8 @@
     "2026-11": {
       "infoJadual": {
         "tajukBulan": "BULAN NOVEMBER 2026",
-        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 6/11/2026",
-        "kemaskiniMasa": "6/11/2026, 8:03 PTG"
+        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 7/11/2026",
+        "kemaskiniMasa": "7/11/2026, 9:37 PG"
       },
       "senaraiHari": [
         {
@@ -88,7 +88,12 @@
             "square_url": null,
             "ditangguhkan": true
           },
-          "maghrib": null,
+          "maghrib": {
+            "nama_penceramah": "Ustaz Nawawi",
+            "tajuk_kuliah": "Ringkasan Riyadhus Solihin",
+            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/16_15.-Ustaz-Nawawi.jpg",
+            "square_url": null
+          },
           "cuti_umum": null
         },
         {
