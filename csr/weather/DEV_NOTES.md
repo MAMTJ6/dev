@@ -742,3 +742,22 @@ MET rain map proves bare `Kudat` = full Bahagian Kudat (Pitas + Kota Marudu yell
 - metapi2 docs (https://metapi2.met.gov.my/docs) load fine and now claim public no-auth access (60/min) — contradicts the METToken-mandatory assumption behind `api/weather-warning.js`. Proxy works today, so no change; but if it 502s again, try a no-token direct call before blaming the token. Postman recipe given: GET + `locationcategoryid=STATE` param, `Authorization: METToken <token>` header only if 401.
 - `?raw` (page overlay) beats guessing URLs for live debugging; `?state=X&debugzoom=1` for framing questions.
 - PowerShell here has no `head`/`wc`/`python3`, and `&` breaks inline `node -e` quoting — write patch scripts to the Temp dir and run them instead.
+
+---
+
+## Session 15 — SPA state switching, district zoom, ?export PNG, overlap-border fix (2026-11-09)
+
+### Shipped (all on origin/main)
+
+1. **District zoom without reload** (`5e729ab`): `highlightByName()` now `fitBounds(layer.getBounds(), {padding 24, maxZoom 11})` after halo+bringToFront. District path never navigated anyway; this just reframes. Clearing still falls back to `resetMapView()`.
+2. **Overlap thin-edge fix** (`8ec0ab3`): southern/shared edges read thin because the blue stroke is centred on the boundary and the later-drawn grey neighbour covers its outer half. `repaintMap()` now `bringToFront()`s overlap layers — same pattern `highlightByName()` already used. Verified on Temerloh fixture screenshot.
+3. **SPA state switching** (`1f9eb78`): Negeri dropdown no longer sets `location.search`. New `switchState()` swaps features from a cached full-GeoJSON (`fullGeoData`), glides via `flyTo` (1.2s, reduced-motion falls back to setView), resets selection/warnings, handles nationwide boundary layer + tooltips, syncs URL with replaceState. `populateDistrictSelect` uses `onchange` (no double-bind). Verified Pahang→Terengganu: no reload (tab generation unchanged), heading/select/URL followed, stable across zoom clicks.
+4. **?export PNG share card** (`7447056`, `174ae56`, `10db46c`): Eksport button in brand bar, visible only with `?export` (note: Tailwind `inline-flex` beats the `hidden` ATTRIBUTE — had to use the `hidden` CLASS). Card = live map + title/timestamp header + legend + source footer, filename `amaran-cuaca-<state>-<yyyymmdd-hhmm>.png`. Tiles got `crossOrigin:true`.
+
+### OPEN — export overlay shift (debug continues next session)
+
+User reports the warning overlay is still shifted in the PNG (latest proof: 02:08 Terengganu export, one-line legend confirms NEW build — not a cache artifact). Status:
+- First theory (html2canvas misreading translated panes) led to the manual compositor (`174ae56`: tiles + SVG + labels drawn at measured rects, html2canvas dropped). Harness tests then aligned at BOTH default framing and zoomed-in (02:02, 02:07 exports match live screenshots).
+- But user\u2019s 02:08 export on the new code still shows the straight-diagonal east edge on the yellow with Setiu/Kuala Nerus/Kuala Terengganu labels sitting east on black. NOTE: harness 02:07 export shows IDENTICAL geography — east-coast districts may genuinely have no warning (rain covers inland districts only?) and the straight edge may be the real coastal/inland district boundary. Unproven either way.
+- Secondary observation: non-warning districts look GREY on the live page but near-BLACK in exports. Possible svg-raster/compositing difference — worth one controlled test.
+- Next-session plan: (a) ask user whether the ON-SCREEN map matches their PNG (if yes → data/geography, not capture); (b) pull `?raw` to see exactly which districts the bulletin names; (c) controlled export-vs-screenshot at 1600px width (user viewport vs harness ~1130px); (d) fixture test (`testWarning=none`) to isolate the dark-default-district question.
