@@ -212,7 +212,7 @@
         <span class="w-3.5 h-3.5 rounded shrink-0" style="background:#fa0101"></span>Bahaya
       </div>
       <div class="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
-        <span class="w-3.5 h-3.5 rounded shrink-0" style="background:repeating-linear-gradient(45deg,#2516d2 0 3px,#fdfe00 3px 7px);border:2px dashed #2516d2"></span>Hujan + Ribut Petir
+        <span class="w-3.5 h-3.5 rounded shrink-0" style="background:#fdfe00;border:3px dashed #2516d2"></span>Hujan + Ribut Petir
       </div>
     </section>
 
@@ -1004,58 +1004,19 @@
     // outlines. Single-state mode is untouched (weight 2, as before).
     const NATIONWIDE_DISTRICT_WEIGHT = 1;
 
-    // Overlap paint (option B): striped fill — rain-tier base with
-    // thunder-blue diagonal stripes — plus a thunder-blue dashed border.
-    // Rain still wins the base (TIER_RANK); stripes make the thunder
-    // half visible even at a glance. Patterns are injected as SVG
-    // <pattern> defs into the map renderer (Leaflet 1.9.4 SVG sets the
-    // path fill attribute from fillColor, so url(#...) works); if the
-    // renderer is not ready yet, falls back to solid rain + blue border.
-    const THUNDER_BLUE = '#2516d2';
-    const OVERLAP_PATTERN_BG = { waspada: '#fdfe00', buruk: '#fea402', bahaya: '#fa0101' };
-    function ensureOverlapPatterns() {
-      const svg = map.getContainer().querySelector('svg');
-      if (!svg) return false;
-      const NS = 'http://www.w3.org/2000/svg';
-      let defs = svg.querySelector('defs');
-      if (!defs) { defs = document.createElementNS(NS, 'defs'); svg.insertBefore(defs, svg.firstChild); }
-      Object.entries(OVERLAP_PATTERN_BG).forEach(([tier, bg]) => {
-        const id = 'overlap-' + tier;
-        if (defs.querySelector('#' + id)) return;
-        const pat = document.createElementNS(NS, 'pattern');
-        pat.setAttribute('id', id);
-        pat.setAttribute('patternUnits', 'userSpaceOnUse');
-        pat.setAttribute('width', '8');
-        pat.setAttribute('height', '8');
-        pat.setAttribute('patternTransform', 'rotate(45)');
-        const bgRect = document.createElementNS(NS, 'rect');
-        bgRect.setAttribute('width', '8');
-        bgRect.setAttribute('height', '8');
-        bgRect.setAttribute('fill', bg);
-        const stripe = document.createElementNS(NS, 'rect');
-        stripe.setAttribute('width', '3');
-        stripe.setAttribute('height', '8');
-        stripe.setAttribute('fill', THUNDER_BLUE);
-        pat.appendChild(bgRect);
-        pat.appendChild(stripe);
-        defs.appendChild(pat);
-      });
-      return true;
-    }
+    // Overlap paint: rain fill wins (TIER_RANK) with a thick thunder-blue
+    // dashed outline on top — both warnings stay visible, no severity lie.
+    // Weight is deliberately heavier than the normal district border
+    // (2 single-state / 1 nationwide) so the thunder half reads at a glance.
     function overlapStyle(tier, weight) {
-      const border = { color: THUNDER_BLUE, weight, dashArray: '6 4', opacity: 1 };
-      if (!OVERLAP_PATTERN_BG[tier] || !map.getContainer().querySelector('#overlap-' + tier)) {
-        return { ...districtWarningStyle(tier), ...border };
-      }
-      return { fillColor: 'url(#overlap-' + tier + ')', fillOpacity: 1, ...border };
+      return { ...districtWarningStyle(tier), color: '#2516d2', weight, dashArray: '6 4' };
     }
-
     function baseStyle(feature) {
       const name = feature.properties.name;
 
       if (isNationwide) {
         const tier = nationwideDistrictTiers.get(name);
-        if (tier && nationwideOverlap.has(name)) return overlapStyle(tier, 2);
+        if (tier && nationwideOverlap.has(name)) return overlapStyle(tier, 3);
         if (tier) return { ...districtWarningStyle(tier), color: '#8a8a8a', weight: NATIONWIDE_DISTRICT_WEIGHT };
         // Vague "whole state, no district detail" wash — scoped to just
         // that state's own features via properties.state, since nationwide
@@ -1071,7 +1032,7 @@
       // District-specific tier paints on top even under a state-wide wash,
       // so "SEKSYEN A: <State> (Maran)" stays visible inside a vaguer
       // whole-state section from another bulletin.
-      if (tier && warningOverlap.has(name)) return overlapStyle(tier, 3);
+      if (tier && warningOverlap.has(name)) return overlapStyle(tier, 5);
       if (tier) return { ...districtWarningStyle(tier), color: '#8a8a8a', weight: 2 };
       if (warningScope === 'state') return { ...stateWarningStyle(warningStateTier), color: '#8a8a8a', weight: 2 };
       return PAGE_DEFAULT_STYLE;
@@ -1099,9 +1060,7 @@
     }
 
     function repaintMap() {
-      if (!geojsonLayer) return;
-      ensureOverlapPatterns();
-      geojsonLayer.setStyle(baseStyle);
+      if (geojsonLayer) geojsonLayer.setStyle(baseStyle);
     }
 
     // Below 768px (matches this repo's own established desktop/mobile
