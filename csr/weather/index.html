@@ -1060,7 +1060,20 @@
     }
 
     function repaintMap() {
-      if (geojsonLayer) geojsonLayer.setStyle(baseStyle);
+      if (!geojsonLayer) return;
+      geojsonLayer.setStyle(baseStyle);
+      // Overlap districts to the front: their blue border is centred on
+      // the polygon boundary, so a later-drawn grey neighbour's fill
+      // would otherwise cover its outer half — the border then reads
+      // thin on shared edges (seen on Temerloh's southern edge) while
+      // looking full-weight on outer edges. Re-applied on every repaint
+      // because refreshWarnings() re-runs setStyle on the same layers.
+      const overlap = isNationwide ? nationwideOverlap : warningOverlap;
+      if (overlap && overlap.size) {
+        geojsonLayer.eachLayer(layer => {
+          if (overlap.has(layer.feature.properties.name)) layer.bringToFront();
+        });
+      }
     }
 
     // Below 768px (matches this repo's own established desktop/mobile
