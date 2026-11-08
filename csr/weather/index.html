@@ -1386,6 +1386,9 @@
           selectionHaloLayer = L.geoJSON(layer.feature, { style: SELECTION_HALO_STYLE }).addTo(map);
           geojsonLayer.resetStyle(layer);
           layer.bringToFront();
+          // Zoom to the picked district without reloading — maxZoom caps
+          // tiny districts so they frame instead of diving to street level.
+          map.fitBounds(layer.getBounds(), { padding: [24, 24], maxZoom: 11 });
         } else {
           geojsonLayer.resetStyle(layer);
         }
