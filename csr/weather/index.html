@@ -318,6 +318,7 @@
     const TICK_MS = 60 * 1000;                  // relative-time labels + clock refresh
 
     let map, geojsonLayer, tileLayer, stateBoundaryLayer;
+    let fullGeoData = null; // cached nationwide districts — switchState() slices per-state views from this, no refetch
     let cfg = null;                   // active state's config entry (from states.json)
     let STATE_CONFIG = null;          // all loaded states, keyed by states.json's own keys
     let isNationwide = false;         // true for the "malaysia" entry (cfg.stateCode === null)
@@ -1109,6 +1110,22 @@
       }
     }
 
+    // Animated twin of resetMapView() for in-page state switches —
+    // Leaflet's flyTo glides out, pans, and glides back in. Boot and
+    // prefers-reduced-motion keep the instant setView.
+    function flyToStateView() {
+      const center = activeCenter(), zoom = activeZoom();
+      if (!center || zoom == null) {
+        if (geojsonLayer) map.fitBounds(geojsonLayer.getBounds());
+        return;
+      }
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        map.setView(center, zoom);
+        return;
+      }
+      map.flyTo(center, zoom, { duration: 1.2 });
+    }
+
     // Nationwide-mode district labels — replaces the old always-on
     // per-state pill. Below NATIONWIDE_LABEL_ZOOM_THRESHOLD the map shows
     // no permanent text at all (matches the "general map" screenshot);
@@ -1242,6 +1259,30 @@
         });
     }
 
+    // Builds the district polygon layer for a feature list — shared by the
+    // boot load and in-page state switches so both paint styles/tooltips
+    // identically.
+    function buildDistrictLayer(features) {
+      return L.geoJSON({ type: 'FeatureCollection', features }, {
+        style: baseStyle,
+        onEachFeature: (feature, layer) => {
+          // Nationwide mode starts every district in the zoomed-out,
+          // on-demand "state name only" tooltip mode — applyNationwideLabelMode()
+          // (driven by zoomend, plus the explicit call right after
+          // resetMapView() below) flips it to automatic per-district
+          // labels once the viewer zooms in far enough.
+          if (isNationwide) {
+            bindNationwideHoverTooltip(layer, feature);
+            return;
+          }
+          layer.bindTooltip(feature.properties.name, {
+            permanent: true, direction: 'center',
+            className: 'district-label-pill font-display font-bold text-xs whitespace-nowrap'
+          });
+        }
+      });
+    }
+
     function loadGeoJSON() {
       fetchWithTimeout(GEOJSON_URL, 8000)
         .then(res => {
@@ -1249,29 +1290,8 @@
           return res.json();
         })
         .then(data => {
-          const stateData = {
-            type: "FeatureCollection",
-            features: isNationwide ? data.features : data.features.filter(f => f.properties.state === cfg.stateCode)
-          };
-
-          geojsonLayer = L.geoJSON(stateData, {
-            style: baseStyle,
-            onEachFeature: (feature, layer) => {
-              // Nationwide mode starts every district in the zoomed-out,
-              // on-demand "state name only" tooltip mode — applyNationwideLabelMode()
-              // (driven by zoomend, plus the explicit call right after
-              // resetMapView() below) flips it to automatic per-district
-              // labels once the viewer zooms in far enough.
-              if (isNationwide) {
-                bindNationwideHoverTooltip(layer, feature);
-                return;
-              }
-              layer.bindTooltip(feature.properties.name, {
-                permanent: true, direction: 'center',
-                className: 'district-label-pill font-display font-bold text-xs whitespace-nowrap'
-              });
-            }
-          }).addTo(map);
+          fullGeoData = data;
+          geojsonLayer = buildDistrictLayer(isNationwide ? data.features : data.features.filter(f => f.properties.state === cfg.stateCode)).addTo(map);
 
           if (isNationwide) {
             buildStateBoundaryLayer().then(layer => {
@@ -1349,6 +1369,76 @@
       history.replaceState(null, '', newUrl);
     }
 
+    // In-page state switching — replaces the old full-reload navigation.
+    // Swaps only the visible district features from the cached nationwide
+    // GeoJSON, glides with flyTo, and refetches warnings for the new cfg.
+    // The URL still syncs via replaceState so the view stays
+    // shareable/bookmarkable.
+    function switchState(key) {
+      const next = STATE_CONFIG[key];
+      if (!next) return;
+      if (next === cfg) { document.getElementById('stateSelect').value = key; return; }
+      cfg = next;
+      isNationwide = !cfg.stateCode;
+
+      const params = new URLSearchParams(window.location.search);
+      params.set('state', key);
+      params.delete('district'); // districts don't carry over between states
+      history.replaceState(null, '', window.location.pathname + '?' + params.toString() + window.location.hash);
+
+      document.title = `Cuaca ${cfg.displayName} — Amaran & Peta Daerah`;
+      document.getElementById('page-heading').textContent = `Cuaca ${cfg.displayName}`;
+      document.getElementById('page-footer').hidden = isNationwide;
+      document.getElementById('stateSelect').value = key;
+
+      // Drop the old state's selection and stale warning paint before the
+      // fresh fetch lands — same empty-first pattern as boot.
+      focusDistrict = null;
+      forecastToday = null;
+      clearSelectionHalo();
+      populateDistrictSelect();
+      warningDistricts = new Map();
+      warningOverlap = new Set();
+      warningScope = null;
+      warningStateTier = null;
+      nationwideDistrictTiers = new Map();
+      nationwideOverlap = new Set();
+      nationwideStateWash = new Map();
+      nationwidePerState = new Map();
+      nationwideActiveWarnings = [];
+      activeWarnings = [];
+      renderForecast();
+      updateSheetHandleText();
+      repaintMap();
+      renderCards();
+      renderNationwidePanel();
+
+      // Boot fetch still in flight — its resolve reads the new
+      // cfg/isNationwide globals, so it lands on the right state without
+      // further work here.
+      if (!fullGeoData || !geojsonLayer) return;
+
+      map.removeLayer(geojsonLayer);
+      geojsonLayer = buildDistrictLayer(isNationwide ? fullGeoData.features : fullGeoData.features.filter(f => f.properties.state === cfg.stateCode));
+      geojsonLayer.addTo(map);
+
+      if (isNationwide && !stateBoundaryLayer) {
+        buildStateBoundaryLayer().then(layer => {
+          stateBoundaryLayer = layer;
+          if (layer && isNationwide) layer.addTo(map);
+        });
+      }
+      if (!isNationwide && stateBoundaryLayer) {
+        map.removeLayer(stateBoundaryLayer);
+        stateBoundaryLayer = null;
+      }
+
+      applyNationwideLabelMode();
+      restyleStateBoundary();
+      flyToStateView();
+      refreshWarnings();
+    }
+
     /**
      * Single entry point for "district selection changed" — drives both
      * the map highlight/zoom and the forecast card. Called from the
@@ -1395,12 +1485,10 @@
       });
     }
 
-    // Populates #districtSelect from cfg.districts — replaces whatever
-    // was there for the previously-active state (or the empty placeholder
-    // on first boot). Only ever runs once per page load (choosing a
-    // different state navigates via location.search, see
-    // populateStateSelect()), so the change listener added here can't
-    // end up double-bound.
+    // Populates #districtSelect from cfg.districts — re-run on every state
+    // switch (choosing a state no longer reloads, see switchState()).
+    // onchange assignment (not addEventListener) so re-populating can't
+    // double-bind the handler.
     function populateDistrictSelect() {
       const sel = document.getElementById('districtSelect');
       sel.innerHTML = '<option value="">-- Pilih Daerah --</option>' +
@@ -1409,24 +1497,18 @@
       // jump to — disable rather than leave an active-looking select with
       // only the placeholder option.
       sel.disabled = cfg.districts.length === 0;
-      sel.addEventListener('change', () => highlightByName(sel.value));
+      sel.onchange = () => highlightByName(sel.value);
     }
 
     // Populates #stateSelect from STATE_CONFIG once, at boot. Choosing a
-    // state navigates (full reload) rather than swapping data in place —
-    // simplest way to fully reset map/geojson/dropdown state, matching
-    // this page's existing non-SPA style.
+    // state switches in place via switchState() (fly animation, no reload);
+    // the URL still syncs so the view stays shareable/bookmarkable.
     function populateStateSelect(activeKey) {
       const sel = document.getElementById('stateSelect');
       sel.innerHTML = Object.entries(STATE_CONFIG)
         .map(([key, s]) => `<option value="${escapeHtml(key)}"${key === activeKey ? ' selected' : ''}>${escapeHtml(s.displayName)}</option>`)
         .join('');
-      sel.addEventListener('change', () => {
-        const params = new URLSearchParams(window.location.search);
-        params.set('state', sel.value);
-        params.delete('district'); // districts don't carry over between states
-        window.location.search = params.toString();
-      });
+      sel.addEventListener('change', () => switchState(sel.value));
     }
 
     // =========================================================
