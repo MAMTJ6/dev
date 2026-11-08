@@ -1925,17 +1925,86 @@
     }
 
     // ?export PNG capture — share card = live map + title/timestamp header
-    // + legend + source footer, composed on one canvas. html2canvas loads
-    // lazily on first use so normal page loads pay nothing; map controls
-    // are hidden in the clone (sources stay credited in the footer line).
-    function ensureHtml2Canvas() {
-      if (window.html2canvas) return Promise.resolve();
+    // + legend + source footer, composed on one canvas. The map half is
+    // composited manually (tiles + overlay SVG + label texts, each drawn
+    // at its measured screen rect) instead of html2canvas: the library
+    // misreads Leaflet's translated panes at some pan offsets and
+    // bakes a shifted overlay into the PNG. Measured rects cannot shift.
+    // Zoom controls are skipped (sources stay credited in the footer line).
+    function drawMapLabels(c, mapEl, rect) {
+      mapEl.querySelectorAll('.leaflet-tooltip').forEach(el => {
+        if (el.offsetParent === null) return;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) return;
+        const cx = r.left - rect.left + r.width / 2;
+        const top = r.top - rect.top;
+        // Split into styled lines: bare text nodes use the tooltip's
+        // own size, child spans (nationwide \u201CDistrict, State\u201D two-liner)
+        // use their own computed size.
+        const lines = [];
+        let cur = { text: '', size: parseFloat(window.getComputedStyle(el).fontSize) || 12 };
+        el.childNodes.forEach(n => {
+          if (n.nodeType === 3) { cur.text += n.textContent; }
+          else if (n.nodeName === 'BR') { lines.push(cur); cur = { text: '', size: cur.size }; }
+          else {
+            if (cur.text) { lines.push(cur); cur = { text: '', size: cur.size }; }
+            const size = parseFloat(window.getComputedStyle(n).fontSize) || cur.size;
+            n.childNodes.forEach(cn => {
+              if (cn.nodeType === 3 && cn.textContent.trim()) lines.push({ text: cn.textContent.trim(), size });
+            });
+          }
+        });
+        if (cur.text.trim()) lines.push({ text: cur.text.trim(), size: cur.size });
+        const clean = lines.map(l => ({ text: l.text.trim(), size: l.size })).filter(l => l.text);
+        if (!clean.length) return;
+        const lh = i => clean[i].size * 1.2;
+        let y = top;
+        clean.forEach((l, i) => {
+          y += (i === 0 ? lh(0) / 2 : (lh(i - 1) + lh(i)) / 2);
+          c.font = `700 ${l.size}px system-ui, sans-serif`;
+          c.textAlign = 'center';
+          c.textBaseline = 'middle';
+          c.lineWidth = Math.max(2, l.size * 0.22);
+          c.strokeStyle = 'rgba(0,0,0,0.85)';
+          c.strokeText(l.text, cx, y);
+          c.fillStyle = '#ffffff';
+          c.fillText(l.text, cx, y);
+        });
+      });
+    }
+
+    function captureMapCanvas() {
       return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-        s.onload = resolve;
-        s.onerror = () => reject(new Error('html2canvas load failed'));
-        document.head.appendChild(s);
+        const mapEl = document.getElementById('map');
+        const rect = mapEl.getBoundingClientRect();
+        const scale = 2;
+        const out = document.createElement('canvas');
+        out.width = Math.round(rect.width * scale);
+        out.height = Math.round(rect.height * scale);
+        const c = out.getContext('2d');
+        c.scale(scale, scale);
+        c.fillStyle = isDarkMode() ? '#05070c' : '#ffffff';
+        c.fillRect(0, 0, rect.width, rect.height);
+        mapEl.querySelectorAll('.leaflet-tile-pane img.leaflet-tile').forEach(img => {
+          if (!img.complete || !img.naturalWidth) return;
+          const r = img.getBoundingClientRect();
+          try { c.drawImage(img, r.left - rect.left, r.top - rect.top, r.width, r.height); }
+          catch (e) { throw new Error('tile draw failed (CORS?): ' + e.message); }
+        });
+        const svg = mapEl.querySelector('.leaflet-overlay-pane svg');
+        const done = () => { drawMapLabels(c, mapEl, rect); resolve(out); };
+        if (!svg) { done(); return; }
+        const r = svg.getBoundingClientRect();
+        const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml;charset=utf-8' }));
+        const im = new Image();
+        im.onload = () => {
+          try { c.drawImage(im, r.left - rect.left, r.top - rect.top, r.width, r.height); }
+          catch (e) { URL.revokeObjectURL(url); reject(e); return; }
+          URL.revokeObjectURL(url);
+          done();
+        };
+        im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('overlay raster failed')); };
+        im.src = url;
       });
     }
 
@@ -1951,12 +2020,8 @@
       btn.disabled = true;
       label.textContent = 'Mengeksport\u2026';
       try {
-        await ensureHtml2Canvas();
         const dark = isDarkMode();
-        const mapCanvas = await window.html2canvas(document.getElementById('map'), {
-          useCORS: true, logging: false, backgroundColor: dark ? '#05070c' : '#ffffff',
-          onclone: doc => { doc.querySelectorAll('.leaflet-control-container').forEach(el => { el.style.display = 'none'; }); }
-        });
+        const mapCanvas = await captureMapCanvas();
         const W = mapCanvas.width;
         const headerH = Math.round(W * 0.075);
         const rowH = Math.round(W * 0.028);
