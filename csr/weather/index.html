@@ -176,6 +176,12 @@
             d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
         </svg>
       </button>
+
+      <button id="export-btn" type="button" aria-label="Eksport peta sebagai PNG"
+        class="hidden inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors shrink-0">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v8.59l2.3-2.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.42L11 12.59V4a1 1 0 0 1 1-1zM5 19a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1z"/></svg>
+        <span>Eksport</span>
+      </button>
     </header>
   </div>
 
@@ -323,6 +329,7 @@
     let STATE_CONFIG = null;          // all loaded states, keyed by states.json's own keys
     let isNationwide = false;         // true for the "malaysia" entry (cfg.stateCode === null)
     let focusDistrict = null;         // district the forecast card follows; null = placeholder
+    let activeStateKey = 'malaysia';  // states.json key of the on-screen state — feeds the ?export filename
     let warningDistricts = new Map(); // district name → severity tier (single-state mode)
     let warningOverlap = new Set();   // districts hit by BOTH thunder + rain (single-state mode)
     let warningScope = null;          // null | 'district' | 'state' (single-state mode)
@@ -373,6 +380,10 @@
     // have to grep the source to remember the ?testWarning= syntax etc.
     // All-lowercase for the same reason as ?raw.
     const DEBUG_PARAM = new URLSearchParams(window.location.search).has('debug');
+
+    // ?export — gated PNG export of the live map (test feature for now).
+    // The export button only appears with ?export in the URL.
+    const EXPORT_PARAM = new URLSearchParams(window.location.search).has('export');
 
     function showStateBanner(msg) {
       const el = document.getElementById('state-error-banner');
@@ -984,7 +995,8 @@
     // only), which silently killed the basemap with ERR_CERT_COMMON_NAME_INVALID.
     function initTileLayer() {
       tileLayer = L.tileLayer(tileUrlForTheme(), {
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        crossOrigin: true // ?export PNG capture reads tile pixels — needs CORS (CARTO allows it)
       }).addTo(map);
     }
 
@@ -1379,6 +1391,7 @@
       if (!next) return;
       if (next === cfg) { document.getElementById('stateSelect').value = key; return; }
       cfg = next;
+      activeStateKey = key;
       isNationwide = !cfg.stateCode;
 
       const params = new URLSearchParams(window.location.search);
@@ -1911,6 +1924,110 @@
       updateFooter();
     }
 
+    // ?export PNG capture — share card = live map + title/timestamp header
+    // + legend + source footer, composed on one canvas. html2canvas loads
+    // lazily on first use so normal page loads pay nothing; map controls
+    // are hidden in the clone (sources stay credited in the footer line).
+    function ensureHtml2Canvas() {
+      if (window.html2canvas) return Promise.resolve();
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('html2canvas load failed'));
+        document.head.appendChild(s);
+      });
+    }
+
+    function localStamp(d) {
+      const p2 = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`;
+    }
+
+    async function exportMapImage() {
+      const btn = document.getElementById('export-btn');
+      const label = btn.querySelector('span');
+      const prev = label.textContent;
+      btn.disabled = true;
+      label.textContent = 'Mengeksport\u2026';
+      try {
+        await ensureHtml2Canvas();
+        const dark = isDarkMode();
+        const mapCanvas = await window.html2canvas(document.getElementById('map'), {
+          useCORS: true, logging: false, backgroundColor: dark ? '#05070c' : '#ffffff',
+          onclone: doc => { doc.querySelectorAll('.leaflet-control-container').forEach(el => { el.style.display = 'none'; }); }
+        });
+        const W = mapCanvas.width;
+        const headerH = Math.round(W * 0.075);
+        const rowH = Math.round(W * 0.028);
+        const pad = Math.round(W * 0.02);
+        const legend = [
+          ['Ribut Petir / Hujan Lebat', '#2516d2', false],
+          ['Waspada', '#fdfe00', false],
+          ['Buruk', '#fea402', false],
+          ['Bahaya', '#fa0101', false],
+          ['Hujan + Ribut Petir', '#fdfe00', true]
+        ];
+        const legendH = pad * 2 + legend.length * rowH;
+        const footerH = Math.round(W * 0.035);
+        const out = document.createElement('canvas');
+        out.width = W;
+        out.height = headerH + mapCanvas.height + legendH + footerH;
+        const c = out.getContext('2d');
+        c.fillStyle = dark ? '#09090b' : '#ffffff';
+        c.fillRect(0, 0, out.width, out.height);
+        c.textBaseline = 'middle';
+        c.fillStyle = dark ? '#f4f4f5' : '#18181b';
+        c.font = `700 ${Math.round(headerH * 0.42)}px system-ui, sans-serif`;
+        c.fillText(`Cuaca ${cfg.displayName}`, pad, headerH / 2);
+        const stamp = document.getElementById('footer-updated').textContent || '';
+        c.font = `${Math.round(headerH * 0.28)}px system-ui, sans-serif`;
+        c.fillStyle = dark ? '#a1a1aa' : '#52525b';
+        c.fillText(stamp, W - pad - c.measureText(stamp).width, headerH / 2);
+        c.drawImage(mapCanvas, 0, headerH);
+        let ly = headerH + mapCanvas.height + pad;
+        c.font = `${Math.round(rowH * 0.55)}px system-ui, sans-serif`;
+        legend.forEach(([name, fill, dashed]) => {
+          const s = Math.round(rowH * 0.6);
+          const cy = ly + rowH / 2;
+          c.fillStyle = fill;
+          if (c.roundRect) { c.beginPath(); c.roundRect(pad, cy - s / 2, s, s, s * 0.25); c.fill(); }
+          else { c.fillRect(pad, cy - s / 2, s, s); }
+          if (dashed) {
+            c.setLineDash([s * 0.3, s * 0.2]);
+            c.strokeStyle = '#2516d2';
+            c.lineWidth = Math.max(2, s * 0.18);
+            c.strokeRect(pad, cy - s / 2, s, s);
+            c.setLineDash([]);
+          }
+          c.fillStyle = dark ? '#f4f4f5' : '#18181b';
+          c.fillText(name, pad + s + rowH * 0.3, cy);
+          ly += rowH;
+        });
+        c.font = `${Math.round(footerH * 0.4)}px system-ui, sans-serif`;
+        c.fillStyle = dark ? '#71717a' : '#a1a1aa';
+        c.fillText('Sumber: MET Malaysia / data.gov.my', pad, headerH + mapCanvas.height + legendH + footerH / 2);
+        const a = document.createElement('a');
+        a.download = `amaran-cuaca-${activeStateKey}-${localStamp(new Date())}.png`;
+        a.href = out.toDataURL('image/png');
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch (e) {
+        console.warn('[weather] Export failed:', e.message);
+      } finally {
+        label.textContent = prev;
+        btn.disabled = false;
+      }
+    }
+
+    function initExportButton() {
+      const btn = document.getElementById('export-btn');
+      btn.classList.remove('hidden');
+      btn.addEventListener('click', exportMapImage);
+    }
+
     function initTestModeBanner() {
       if (!TEST_WARNING_PARAM) return;
       const el = document.getElementById('test-mode-banner');
@@ -2131,12 +2248,14 @@
       document.title = `Cuaca ${cfg.displayName} — Amaran & Peta Daerah`;
       document.getElementById('page-heading').textContent = `Cuaca ${cfg.displayName}`;
 
-      populateStateSelect(stateKey in STATE_CONFIG ? stateKey : 'malaysia');
+      activeStateKey = stateKey in STATE_CONFIG ? stateKey : 'malaysia';
+      populateStateSelect(activeStateKey);
       populateDistrictSelect();
       initLocationPopover();
       initNationwideSummaryToggle();
       initSheetHandle();
       initThemeToggle();
+      if (EXPORT_PARAM) initExportButton();
       renderClock();
       renderForecast(); // hides the forecast card immediately (no district picked yet)
       renderCards();    // paint both empty warning-card states immediately, before first fetch
