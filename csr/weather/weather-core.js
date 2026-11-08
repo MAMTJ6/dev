@@ -677,12 +677,28 @@ function expandCombinedDistricts(districts, cfg) {
   return districts;
 }
 
+// Per-source hit expansion for the rain+thunder overlap outline: when a
+// parent district is hit by one source (live: "Gua Musang" covers
+// "Kecil Lojing"), its combined children count as hit by that source too,
+// so a rain-parent + thunder-child (or vice versa) still shows overlap.
+function expandCombinedHitSet(hitSet, cfg) {
+  const combined = (cfg && cfg.combined) || {};
+  Object.entries(combined).forEach(([parent, children]) => {
+    if (!hitSet.has(parent)) return;
+    (children || []).forEach(c => hitSet.add(c));
+  });
+  return hitSet;
+}
+
 function computeWarningState(warnings, cfg) {
   const districts = new Map(); // district → highest tier across all warnings
+  const thunderHit = new Set(); // districts named by any thunder (amaran) warning
+  const rainHit = new Set();    // districts named by any rain warning
   let scope = null;            // null | 'district' | 'state'
   let stateTier = null;
 
   warnings.forEach(w => {
+    const isRain = w.source === 'rain';
     const parsed = stateScopeOf(w, cfg);
     if (parsed.scope === 'marine' || parsed.scope === null) return; // no land district affected
     if (parsed.scope === 'state') {
@@ -693,14 +709,21 @@ function computeWarningState(warnings, cfg) {
       scope = 'district';
     }
     Object.entries(parsed.tiers || {}).forEach(([d, t]) => {
+      (isRain ? rainHit : thunderHit).add(d);
       const cur = districts.get(d);
       if (!cur || TIER_RANK[t] > TIER_RANK[cur]) districts.set(d, t);
     });
   });
 
   expandCombinedDistricts(districts, cfg);
+  expandCombinedHitSet(thunderHit, cfg);
+  expandCombinedHitSet(rainHit, cfg);
+  // Overlap = painted districts hit by BOTH sources. Winner stays rain
+  // (TIER_RANK), so the map keeps the rain fill and draws the thunder
+  // outline on top — no severity lie.
+  const overlap = new Set([...thunderHit].filter(d => rainHit.has(d) && districts.has(d)));
 
-  return { scope, districts, stateTier };
+  return { scope, districts, stateTier, overlap };
 }
 
 // Nationwide equivalent of computeWarningState() — instead of one cfg, runs
@@ -726,6 +749,8 @@ function computeWarningState(warnings, cfg) {
 // it here avoids a second pass re-deriving the same parse.
 function computeWarningStateNationwide(warnings, allStates) {
   const districts = new Map(); // district name → highest tier
+  const thunderHit = new Set(); // districts named by any thunder warning
+  const rainHit = new Set();    // districts named by any rain warning
   const stateWash = new Map(); // stateCode → highest tier
   const perState = new Map();  // stateCode → { tier, scope, districtCount, validTo, sources }
   const districtSets = new Map(); // stateCode → Set(district) — private accumulator for perState's districtCount
@@ -762,6 +787,7 @@ function computeWarningStateNationwide(warnings, allStates) {
         if (!cur || TIER_RANK[t] > TIER_RANK[cur]) stateWash.set(stateCfg.stateCode, t);
       }
       Object.entries(parsed.tiers || {}).forEach(([d, t]) => {
+        (w.source === 'rain' ? rainHit : thunderHit).add(d);
         const cur = districts.get(d);
         if (!cur || TIER_RANK[t] > TIER_RANK[cur]) districts.set(d, t);
       });
@@ -803,7 +829,13 @@ function computeWarningStateNationwide(warnings, allStates) {
 
   perState.forEach((entry, code) => { entry.districtCount = districtSets.get(code).size; });
 
-  return { districts, stateWash, perState };
+  Object.values(allStates).filter(s => s.apiName && s.stateCode).forEach(stateCfg => {
+    expandCombinedHitSet(thunderHit, stateCfg);
+    expandCombinedHitSet(rainHit, stateCfg);
+  });
+  const overlap = new Set([...thunderHit].filter(d => rainHit.has(d) && districts.has(d)));
+
+  return { districts, stateWash, perState, overlap };
 }
 
 // ---------------------------------------------------------------------

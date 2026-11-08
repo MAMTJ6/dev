@@ -208,8 +208,11 @@
       <div class="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
         <span class="w-3.5 h-3.5 rounded shrink-0" style="background:#fea402"></span>Buruk
       </div>
-      <div class="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+      <div class="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
         <span class="w-3.5 h-3.5 rounded shrink-0" style="background:#fa0101"></span>Bahaya
+      </div>
+      <div class="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <span class="w-3.5 h-3.5 rounded shrink-0" style="background:#fdfe00;border:2px dashed #2516d2"></span>Hujan + Ribut Petir
       </div>
     </section>
 
@@ -320,9 +323,11 @@
     let isNationwide = false;         // true for the "malaysia" entry (cfg.stateCode === null)
     let focusDistrict = null;         // district the forecast card follows; null = placeholder
     let warningDistricts = new Map(); // district name → severity tier (single-state mode)
+    let warningOverlap = new Set();   // districts hit by BOTH thunder + rain (single-state mode)
     let warningScope = null;          // null | 'district' | 'state' (single-state mode)
     let warningStateTier = null;      // tier for the whole-state wash, when scope === 'state' (single-state mode)
     let nationwideDistrictTiers = new Map(); // district name → severity tier (nationwide mode)
+    let nationwideOverlap = new Set();        // districts hit by BOTH sources (nationwide mode)
     let nationwideStateWash = new Map();     // stateCode → severity tier, vague state-wide warnings (nationwide mode)
     let nationwidePerState = new Map();      // stateCode → summary { tier, scope, districtCount, validTo, sources } (nationwide mode)
     let nationwideActiveWarnings = [];       // raw active warning objects, both sources (nationwide mode) — feeds the bottom summary bar's bulletin text
@@ -999,11 +1004,18 @@
     // outlines. Single-state mode is untouched (weight 2, as before).
     const NATIONWIDE_DISTRICT_WEIGHT = 1;
 
+    // Overlap paint: rain fill wins (TIER_RANK) with a thunder-blue dashed
+    // outline on top — both warnings stay visible, no severity lie.
+    function overlapStyle(tier, weight) {
+      return { ...districtWarningStyle(tier), color: '#2516d2', weight, dashArray: '6 4' };
+    }
+
     function baseStyle(feature) {
       const name = feature.properties.name;
 
       if (isNationwide) {
         const tier = nationwideDistrictTiers.get(name);
+        if (tier && nationwideOverlap.has(name)) return overlapStyle(tier, 2);
         if (tier) return { ...districtWarningStyle(tier), color: '#8a8a8a', weight: NATIONWIDE_DISTRICT_WEIGHT };
         // Vague "whole state, no district detail" wash — scoped to just
         // that state's own features via properties.state, since nationwide
@@ -1019,6 +1031,7 @@
       // District-specific tier paints on top even under a state-wide wash,
       // so "SEKSYEN A: <State> (Maran)" stays visible inside a vaguer
       // whole-state section from another bulletin.
+      if (tier && warningOverlap.has(name)) return overlapStyle(tier, 3);
       if (tier) return { ...districtWarningStyle(tier), color: '#8a8a8a', weight: 2 };
       if (warningScope === 'state') return { ...stateWarningStyle(warningStateTier), color: '#8a8a8a', weight: 2 };
       return PAGE_DEFAULT_STYLE;
@@ -1737,6 +1750,7 @@
         ]);
         const state = computeWarningStateNationwide(combined, STATE_CONFIG);
         nationwideDistrictTiers = state.districts;
+        nationwideOverlap = state.overlap || new Set();
         nationwideStateWash = state.stateWash;
         nationwidePerState = state.perState;
         nationwideActiveWarnings = combined.filter(isWarningActive);
@@ -1762,6 +1776,7 @@
         const state = computeWarningState(activeWarnings, cfg);
         warningScope = state.scope;
         warningDistricts = state.districts;
+        warningOverlap = state.overlap || new Set();
         warningStateTier = state.stateTier;
       } else {
         // Two independent sources, fetched in parallel — either failing
@@ -1786,6 +1801,7 @@
           const state = computeWarningState(activeWarnings, cfg);
           warningScope = state.scope;
           warningDistricts = state.districts;
+          warningOverlap = state.overlap || new Set();
           warningStateTier = state.stateTier;
         }
       }
