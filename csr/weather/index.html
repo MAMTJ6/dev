@@ -2033,7 +2033,23 @@
           ['Bahaya', '#fa0101', false],
           ['Hujan + Ribut Petir', '#fdfe00', true]
         ];
-        const legendH = pad * 2 + legend.length * rowH;
+        // Legend chips flow left-to-right in one line, wrapping only if
+        // the viewport is too narrow — rows are centred as a group.
+        const meas = document.createElement('canvas').getContext('2d');
+        meas.font = `${Math.round(rowH * 0.55)}px system-ui, sans-serif`;
+        const sw = Math.round(rowH * 0.6);
+        const gap = rowH * 0.9;
+        const items = legend.map(([name, fill, dashed]) => ({ name, fill, dashed, w: sw + rowH * 0.3 + meas.measureText(name).width }));
+        const rows = [[]];
+        let rowW = 0;
+        items.forEach(it => {
+          const cur = rows[rows.length - 1];
+          const need = (cur.length ? gap : 0) + it.w;
+          if (cur.length && rowW + need > W - pad * 2) { rows.push([it]); rowW = it.w; }
+          else { if (cur.length) rowW += gap; cur.push(it); rowW += it.w; }
+        });
+        const rowWidths = rows.map(r => r.reduce((a, it, i) => a + it.w + (i ? gap : 0), 0));
+        const legendH = pad * 2 + rows.length * rowH;
         const footerH = Math.round(W * 0.035);
         const out = document.createElement('canvas');
         out.width = W;
@@ -2050,24 +2066,26 @@
         c.fillStyle = dark ? '#a1a1aa' : '#52525b';
         c.fillText(stamp, W - pad - c.measureText(stamp).width, headerH / 2);
         c.drawImage(mapCanvas, 0, headerH);
-        let ly = headerH + mapCanvas.height + pad;
         c.font = `${Math.round(rowH * 0.55)}px system-ui, sans-serif`;
-        legend.forEach(([name, fill, dashed]) => {
-          const s = Math.round(rowH * 0.6);
-          const cy = ly + rowH / 2;
-          c.fillStyle = fill;
-          if (c.roundRect) { c.beginPath(); c.roundRect(pad, cy - s / 2, s, s, s * 0.25); c.fill(); }
-          else { c.fillRect(pad, cy - s / 2, s, s); }
-          if (dashed) {
-            c.setLineDash([s * 0.3, s * 0.2]);
-            c.strokeStyle = '#2516d2';
-            c.lineWidth = Math.max(2, s * 0.18);
-            c.strokeRect(pad, cy - s / 2, s, s);
-            c.setLineDash([]);
-          }
-          c.fillStyle = dark ? '#f4f4f5' : '#18181b';
-          c.fillText(name, pad + s + rowH * 0.3, cy);
-          ly += rowH;
+        c.textAlign = 'left';
+        rows.forEach((row, ri) => {
+          const cy = headerH + mapCanvas.height + pad + rowH * ri + rowH / 2;
+          let x = (W - rowWidths[ri]) / 2;
+          row.forEach(({ name, fill, dashed, w }) => {
+            c.fillStyle = fill;
+            if (c.roundRect) { c.beginPath(); c.roundRect(x, cy - sw / 2, sw, sw, sw * 0.25); c.fill(); }
+            else { c.fillRect(x, cy - sw / 2, sw, sw); }
+            if (dashed) {
+              c.setLineDash([sw * 0.3, sw * 0.2]);
+              c.strokeStyle = '#2516d2';
+              c.lineWidth = Math.max(2, sw * 0.18);
+              c.strokeRect(x, cy - sw / 2, sw, sw);
+              c.setLineDash([]);
+            }
+            c.fillStyle = dark ? '#f4f4f5' : '#18181b';
+            c.fillText(name, x + sw + rowH * 0.3, cy);
+            x += w + gap;
+          });
         });
         c.font = `${Math.round(footerH * 0.4)}px system-ui, sans-serif`;
         c.fillStyle = dark ? '#71717a' : '#a1a1aa';
