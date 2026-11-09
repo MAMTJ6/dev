@@ -1100,6 +1100,26 @@
       return window.innerWidth < 768;
     }
 
+    // District-focus framing per screen tier (see highlightByName()):
+    // fitBounds() fits into the whole map container, but floating chrome
+    // covers part of it — the 440px side column on desktop, the top bar
+    // + expanded bottom sheet on mobile. Per-tier padding reserves that
+    // covered space so the district lands fully in the VISIBLE area
+    // instead of sliding underneath. The sheet reserve derives from the
+    // same 75vh expanded max-height as style.css's mobile block, so the
+    // two can't drift apart when one gets tuned.
+    function focusFrameOptions() {
+      const w = window.innerWidth;
+      if (w >= 768) {
+        return { paddingTopLeft: [24, 24], paddingBottomRight: [472, 32], maxZoom: 11 };
+      }
+      const sheetPad = Math.round(window.innerHeight * 0.75) + 24;
+      if (w >= 480) {
+        return { paddingTopLeft: [24, 88], paddingBottomRight: [24, sheetPad], maxZoom: 10 };
+      }
+      return { paddingTopLeft: [16, 88], paddingBottomRight: [16, sheetPad], maxZoom: 10 };
+    }
+
     function activeCenter() {
       return (isMobileViewport() && cfg.mobile && cfg.mobile.center) ? cfg.mobile.center : cfg.center;
     }
@@ -1489,9 +1509,11 @@
           selectionHaloLayer = L.geoJSON(layer.feature, { style: SELECTION_HALO_STYLE }).addTo(map);
           geojsonLayer.resetStyle(layer);
           layer.bringToFront();
-          // Zoom to the picked district without reloading — maxZoom caps
-          // tiny districts so they frame instead of diving to street level.
-          map.fitBounds(layer.getBounds(), { padding: [24, 24], maxZoom: 11 });
+          // Zoom to the picked district without reloading — tiered
+          // framing (focusFrameOptions()) keeps it fully in the visible
+          // map area on every screen size; maxZoom caps tiny districts
+          // so they frame instead of diving to street level.
+          map.fitBounds(layer.getBounds(), focusFrameOptions());
         } else {
           geojsonLayer.resetStyle(layer);
         }
