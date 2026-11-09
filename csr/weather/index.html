@@ -2329,7 +2329,7 @@
     // Edges feather to zero (smoothstep over an 8% margin) so particles
     // dissolve instead of hitting a hard rectangle.
     function buildSyntheticWind() {
-      const lo1 = 98.5, la1 = 8.0, dx = 0.1, dy = 0.1, nx = 215, ny = 100;
+      const lo1 = 98.5, la1 = 10.0, dx = 0.1, dy = 0.1, nx = 215, ny = 120;
       const edge = 0.08;
       const smooth = t => { t = Math.min(Math.max(t, 0), 1); return t * t * (3 - 2 * t); };
       const u = [], v = [];
