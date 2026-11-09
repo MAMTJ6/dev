@@ -356,6 +356,28 @@ html.light .forecast-slot .slot-icon .wicon {
         display: none;
     }
 
+    /* Theme + export ride inside #brand-bar on desktop, but on phones
+       they float as map buttons top-right below the header instead —
+       position:fixed lifts them out of the bar's flex flow (freeing
+       that space for title + clock) while keeping the DOM/desktop
+       exactly as-is. Stacked vertically; export only when ?export
+       unhides it (display:none still applies, fixed or not). */
+    #theme-toggle,
+    #export-btn {
+        position: fixed;
+        right: 0.75rem;
+        z-index: 1000;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    }
+
+    #theme-toggle {
+        top: 80px;
+    }
+
+    #export-btn {
+        top: 124px;
+    }
+
     /* Leaflet's zoom widget sits top-left under #topleft-stack, which
        now spans the full width — push it below the bar so it stays
        tappable instead of hidden underneath. */
