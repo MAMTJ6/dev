@@ -2321,21 +2321,28 @@
     }
 
     // ?windtest Spike A — free particle proof with ZERO backend. A small
-    // synthetic smooth field over the Malaysia box (prevailing easterly +
-    // a slow swirl, hand-built — clearly labelled TEST DATA, never a
-    // forecast) in the exact record shape leaflet-velocity's WindJS
-    // builder reads: u = parameterCategory 2 / number 2, v = 2 / 3,
-    // origin at the north-west corner, dy stepping southward.
+    // synthetic smooth field over the whole-Malaysia box (prevailing
+    // easterly + a slow swirl, hand-built — clearly labelled TEST DATA,
+    // never a forecast) in the exact record shape leaflet-velocity's
+    // WindJS builder reads: u = parameterCategory 2 / number 2,
+    // v = 2 / 3, origin at the north-west corner, dy stepping southward.
+    // Edges feather to zero (smoothstep over an 8% margin) so particles
+    // dissolve instead of hitting a hard rectangle.
     function buildSyntheticWind() {
-      const lo1 = 99.0, la1 = 8.0, dx = 0.1, dy = 0.1, nx = 61, ny = 73;
+      const lo1 = 98.5, la1 = 8.0, dx = 0.1, dy = 0.1, nx = 215, ny = 100;
+      const edge = 0.08;
+      const smooth = t => { t = Math.min(Math.max(t, 0), 1); return t * t * (3 - 2 * t); };
       const u = [], v = [];
       for (let j = 0; j < ny; j++) {
         const lat = la1 - j * dy;
+        const fy = smooth(Math.min(j, ny - 1 - j) / (ny * edge));
         for (let i = 0; i < nx; i++) {
           const lon = lo1 + i * dx;
+          const fx = smooth(Math.min(i, nx - 1 - i) / (nx * edge));
+          const f = Math.min(fx, fy);
           const a = (lon - 99) * 0.45, b = lat * 0.9;
-          u.push(-(3 + 2 * Math.sin(b) * Math.cos(a)) + 1.2 * Math.sin(a + b));
-          v.push(1.5 * Math.sin(a) * Math.cos(b * 0.7) + 0.6 * Math.cos(a - b));
+          u.push((-(3 + 2 * Math.sin(b) * Math.cos(a)) + 1.2 * Math.sin(a + b)) * f);
+          v.push((1.5 * Math.sin(a) * Math.cos(b * 0.7) + 0.6 * Math.cos(a - b)) * f);
         }
       }
       const head = (n) => ({ parameterCategory: 2, parameterNumber: n, nx, ny, lo1, la1, dx, dy, refTime: new Date().toISOString(), forecastTime: 0 });
@@ -2354,7 +2361,17 @@
     }
 
     // Own pane between tiles (200) and districts (400), click-through so
-    // particles never swallow taps meant for the map underneath.
+    // particles never swallow taps meant for the map underneath. Density
+    // rescales with zoom (same count packs tighter zoomed out), via the
+    // plugin's own setOptions restart path — verified in its source.
+    let windLayer = null;
+    const WIND_BASE_MULT = 1 / 300; // plugin default: looks right zoomed in
+    function windDensityForZoom(z) {
+      return WIND_BASE_MULT * Math.min(1, Math.max(0.15, Math.pow(2, (z - 7) * 0.8)));
+    }
+    function applyWindDensity() {
+      if (windLayer && map) windLayer.setOptions({ particleMultiplier: windDensityForZoom(map.getZoom()) });
+    }
     function initWindTest() {
       ensureVelocityLib().then(() => {
         if (!map.createPane) return;
@@ -2362,15 +2379,18 @@
         const pane = map.getPane('windPane');
         pane.style.zIndex = 350;
         pane.style.pointerEvents = 'none';
-        L.velocityLayer({
+        windLayer = L.velocityLayer({
           displayValues: false,
           data: buildSyntheticWind(),
           paneName: 'windPane',
           velocityScale: 0.008,
           maxVelocity: 12,
           minVelocity: 0,
+          particleMultiplier: windDensityForZoom(map.getZoom()),
           opacity: 0.85
-        }).addTo(map);
+        });
+        windLayer.addTo(map);
+        map.on('zoomend', applyWindDensity);
         console.info('[weather] ?windtest particle layer on (SYNTHETIC test data, not a forecast)');
       }).catch(err => console.warn('[weather] wind spike failed:', err.message));
     }
