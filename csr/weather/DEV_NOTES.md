@@ -761,3 +761,26 @@ User reports the warning overlay is still shifted in the PNG (latest proof: 02:0
 - But user\u2019s 02:08 export on the new code still shows the straight-diagonal east edge on the yellow with Setiu/Kuala Nerus/Kuala Terengganu labels sitting east on black. NOTE: harness 02:07 export shows IDENTICAL geography — east-coast districts may genuinely have no warning (rain covers inland districts only?) and the straight edge may be the real coastal/inland district boundary. Unproven either way.
 - Secondary observation: non-warning districts look GREY on the live page but near-BLACK in exports. Possible svg-raster/compositing difference — worth one controlled test.
 - Next-session plan: (a) ask user whether the ON-SCREEN map matches their PNG (if yes → data/geography, not capture); (b) pull `?raw` to see exactly which districts the bulletin names; (c) controlled export-vs-screenshot at 1600px width (user viewport vs harness ~1130px); (d) fixture test (`testWarning=none`) to isolate the dark-default-district question.
+
+---
+
+## Session 16 — mobile top bar, drawer, tiered district framing, label declutter, wind Spike A (2026-11-09 → 11-10)
+
+### Shipped (all on origin/main)
+
+1. **Mobile top-bar fit** (`87627a7`, style.css <768px only): tighter gaps/padding, title truncates, `#live-date` hidden (clock stays), Leaflet zoom pushed below the bar, test/error banners moved below the bar. Desktop untouched.
+2. **Tiered district-focus framing** (`dc02a58`, `focusFrameOptions()`): desktop reserves the 440px side column; phones/tablets offset for top bar + expanded sheet; 3 tiers (small phone / large phone-tablet / desktop).
+3. **Large-district collapse** (`4c8a58`, `districtNeedsFullView()`): Sabah/Sarawak giants squeezed into an overview sliver under the 75vh sheet reserve — now the sheet collapses to peek and the district takes the full viewport when strip-fit costs >1 zoom level and sits below z8. Zoom-invariant math (projected px, not degree spans).
+4. **Mobile drawer** (`90e374f`): hamburger in bar (replaces theme slot on mobile), slide-in right drawer with theme row (moved node), export row (moved node, full-width w/ label), **legend as colour key** (moved `#map-legend` node — phones finally get the key), source/updated line. Single-copy node-move via `layoutMobileNodes()` + matchMedia, graceful fallback. `style.css?v=2` cache-buster added (bump on every CSS change — phones sat on stale CSS once already).
+5. **Label declutter** (`66d37a9`, `declutterDistrictLabels()`): permanent per-district labels pile up in Sarawak/Sabah/Selangor (fine for Pahang's 11 big districts). Biggest-first greedy hide on rect overlap, reappear on zoom-in, focus always kept, nationwide excluded.
+6. **Google-style label pass** (`9aeae9`, after reading Google's collision docs + US10832463): warned districts outrank quiet ones regardless of area, ties to lower screen position, fade via `.label-collided` opacity transition instead of display flip. Variable-anchor nudge queued as follow-up.
+7. **Wind Spike A** (`1c7078a`, `33a3e2b`, `82dc9d5`, `?windtest`): free-option renderer proof — pinned `leaflet-velocity@2.1.4`, synthetic smooth field (easterly + swirl, clearly test data), own `windPane` z=350 click-through, feathered edges (smoothstep 8% margin), zoom-scaled density (0.33x at z5 → full at z7+ via setOptions). Grid now covers all Malaysia (98.5–120E, 10N–2S). Verified: plugin loads on Leaflet 1.9.4, pane/canvas correct, grid interpolation sane at real coords; animated drawing NOT verifiable in harness (bg tab pauses rAF) — needs on-device check.
+
+### PARKED — Spike B (real GFS data, continue next session)
+
+Research done: `BlueNetCat/grib22json` decodes GRIB2 purely in JS (browser-side, no Java backend). Plan: NOMADS grib-filter subregion (GFS 0.25°, UGRD+VGRD 10m, ~3.4k pts) → decode in browser → existing layer; synthetic stays as offline fallback. Open unknowns: (a) NOMADS CORS headers — if missing, thin `api/` byte-proxy (forward+cache, no conversion); (b) whether grib22json handles GFS complex packing — verify with one real file, don't assume. Fallback if GRIB fails: Open-Meteo point-matrix → u/v client-side. kill criteria: needs a key/paid tier → stop and report.
+
+### Still open (unchanged)
+
+- Export overlay shift (Session 15 item) — paused per user, not revisited.
+- Sabah `divisions`-table expansion (Session 14 item) — still parked for lack of same-time text+map evidence.
