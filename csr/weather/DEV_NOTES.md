@@ -784,3 +784,4 @@ Research done: `BlueNetCat/grib22json` decodes GRIB2 purely in JS (browser-side,
 
 - Export overlay shift (Session 15 item) — paused per user, not revisited.
 - Sabah `divisions`-table expansion (Session 14 item) — still parked for lack of same-time text+map evidence.
+- **Coastline (marine) warnings** (parked 2026-11-10, next-session discussion) — highlight the coastline boundary for MET strong-winds/rough-seas bulletins. Phased plan: Phase 1 = state-level "waters of X" → coastal district edges (derivable from existing GeoJSON); Phase 2 = named offshore blocks like Condore (needs a sea-zone source + live bulletin survey, schematic zones not real boundaries). Open UI question: third warning card vs drawer/legend indicator. Render must be coastline-only (glowing outline, zero land fill) so it never reads as a district warning.
