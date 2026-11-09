@@ -330,6 +330,54 @@ html.light .forecast-slot .slot-icon .wicon {
         padding: 0.75rem;
     }
 
+    /* Brand bar: ~410px of content in a 360px viewport otherwise.
+       Tighten gaps/padding, let the title truncate, drop the date
+       (clock stays) — all mobile-only, desktop untouched. */
+    #brand-bar {
+        gap: 0.5rem;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    #brand-bar h1 {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 0.95rem;
+    }
+
+    #live-date {
+        display: none;
+    }
+
+    /* ?export button would add a 5th chunk to an already-tight bar —
+       keep it tappable as an icon-only button on phones. */
+    #export-btn span {
+        display: none;
+    }
+
+    /* Leaflet's zoom widget sits top-left under #topleft-stack, which
+       now spans the full width — push it below the bar so it stays
+       tappable instead of hidden underneath. */
+    #map .leaflet-top.leaflet-left {
+        top: 68px;
+    }
+
+    /* Both banners are centered at the top on desktop where the bar
+       only spans half the width — on mobile they'd sit on top of the
+       full-width bar, so drop them below it. */
+    #test-mode-banner {
+        top: 76px;
+        max-width: calc(100vw - 1.5rem);
+        font-size: 12px;
+    }
+
+    #state-error-banner {
+        top: 120px;
+        max-width: calc(100vw - 1.5rem);
+        font-size: 12px;
+    }
+
     #location-popover {
         max-width: calc(100vw - 1.5rem);
     }
