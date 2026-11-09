@@ -1211,6 +1211,35 @@
       return { paddingTopLeft: [16, 88], paddingBottomRight: [16, sheetPad], maxZoom: 10 };
     }
 
+    // Large-district escape hatch for mobile (see highlightByName()):
+    // the tiered offset framing above reserves the full expanded sheet
+    // (75vh), leaving only a thin visible strip — small districts hit the
+    // maxZoom cap and render large, centred in that strip, but a big
+    // district (Sabah/Sarawak interior) would squeeze into an overview
+    // sliver with most of it hidden behind the sheet. Compares the fit
+    // zoom into the strip vs the full viewport (both computed live via
+    // project(), so real pixels, not guessed degree spans): collapses
+    // only when the strip costs both real detail (>1 zoom level) and the
+    // strip fit itself is too far out (<8) to read as a focus.
+    function districtNeedsFullView(bounds) {
+      const w = window.innerWidth;
+      if (w >= 768 || !map) return false; // desktop height is fully available — offset framing holds
+      const size = map.getSize();
+      const sidePad = w >= 480 ? 24 : 16;
+      const stripW = size.x - sidePad * 2;
+      const stripH = size.y - 88 - (Math.round(window.innerHeight * 0.75) + 24);
+      const fullW = size.x - 48;
+      const fullH = size.y - 176;
+      const z = map.getZoom();
+      const p1 = map.project(bounds.getSouthWest(), z);
+      const p2 = map.project(bounds.getNorthEast(), z);
+      const bw = Math.abs(p2.x - p1.x) || 1;
+      const bh = Math.abs(p2.y - p1.y) || 1;
+      const zStrip = z + Math.log2(Math.min(stripW / bw, Math.max(stripH, 1) / bh));
+      const zFull = z + Math.log2(Math.min(fullW / bw, Math.max(fullH, 1) / bh));
+      return zStrip < Math.min(zFull - 1, 8);
+    }
+
     function activeCenter() {
       return (isMobileViewport() && cfg.mobile && cfg.mobile.center) ? cfg.mobile.center : cfg.center;
     }
@@ -1581,10 +1610,6 @@
       updateSheetHandleText();
       if (focusDistrict) {
         refreshForecast();
-        // A district pick is the clearest possible "I want to see this"
-        // signal — reveal the sheet on mobile rather than leaving the
-        // viewer to notice/tap the peek handle themselves.
-        if (isMobileViewport()) setSheetExpanded(true);
       }
 
       if (!name) {
@@ -1600,11 +1625,23 @@
           selectionHaloLayer = L.geoJSON(layer.feature, { style: SELECTION_HALO_STYLE }).addTo(map);
           geojsonLayer.resetStyle(layer);
           layer.bringToFront();
-          // Zoom to the picked district without reloading — tiered
-          // framing (focusFrameOptions()) keeps it fully in the visible
-          // map area on every screen size; maxZoom caps tiny districts
-          // so they frame instead of diving to street level.
-          map.fitBounds(layer.getBounds(), focusFrameOptions());
+          // Adaptive mobile framing — a small district expands the sheet
+          // and frames into the visible strip (focusFrameOptions()); a
+          // big district would only squeeze into an overview sliver
+          // there, so the sheet collapses to peek and the district takes
+          // the full viewport instead (see districtNeedsFullView()).
+          // maxZoom caps tiny districts so they frame instead of diving
+          // to street level.
+          if (isMobileViewport() && districtNeedsFullView(layer.getBounds())) {
+            setSheetExpanded(false);
+            map.fitBounds(layer.getBounds(), { padding: [24, 24], maxZoom: 11 });
+          } else {
+            // A district pick is the clearest possible "I want to see
+            // this" signal — reveal the sheet on mobile rather than
+            // leaving the viewer to notice/tap the peek handle themselves.
+            if (isMobileViewport()) setSheetExpanded(true);
+            map.fitBounds(layer.getBounds(), focusFrameOptions());
+          }
         } else {
           geojsonLayer.resetStyle(layer);
         }
