@@ -39,8 +39,11 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <!-- ABSOLUTE path — the Vercel cleanUrls lesson: relative paths
-       resolve one level too high on slash-less directory URLs -->
-  <link rel="stylesheet" href="/csr/weather/style.css" />
+       resolve one level too high on slash-less directory URLs.
+       ?v= cache-buster — bump it on every style.css change so phones
+       drop their cached copy immediately instead of sitting on stale
+       CSS (Chrome Android caches the query-less URL aggressively). -->
+  <link rel="stylesheet" href="/csr/weather/style.css?v=2" />
 </head>
 
 <body class="font-sans antialiased bg-zinc-50 dark:bg-zinc-950 text-zinc-950 dark:text-zinc-50">
@@ -182,8 +185,39 @@
         <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v8.59l2.3-2.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.42L11 12.59V4a1 1 0 0 1 1-1zM5 19a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1z"/></svg>
         <span>Eksport</span>
       </button>
+      <button id="menu-toggle" type="button" aria-label="Buka menu" aria-expanded="false" aria-controls="mobile-drawer"
+        class="inline-flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors shrink-0">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M4 6h16a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zm0 5h16a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zm0 5h16a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2z"/></svg>
+      </button>
     </header>
   </div>
+
+  <!-- Mobile-only drawer (<768px): settings + legend colour key behind a
+       hamburger — desktop never shows this (see style.css). #theme-toggle,
+       #export-btn and #map-legend NODES move here below 768px via
+       layoutMobileNodes(), so there is exactly one copy of each, never a
+       synced duplicate that can drift. -->
+  <div id="drawer-backdrop"></div>
+  <aside id="mobile-drawer" aria-label="Menu">
+    <div class="flex items-center gap-2 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 shrink-0">
+      <span class="font-display font-bold text-sm text-zinc-900 dark:text-zinc-100">Menu</span>
+      <button id="drawer-close" type="button" aria-label="Tutup menu"
+        class="ml-auto inline-flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors shrink-0">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg>
+      </button>
+    </div>
+    <div class="flex flex-col gap-4 px-4 py-4 overflow-y-auto">
+      <div id="drawer-theme-slot" class="flex items-center justify-between gap-3">
+        <span class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Tema paparan</span>
+      </div>
+      <div id="drawer-export-slot"></div>
+      <div id="drawer-legend-slot"></div>
+      <div class="border-t border-zinc-200 dark:border-zinc-700 pt-3 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+        <div>Sumber data: MET Malaysia / data.gov.my</div>
+        <div id="drawer-updated">—</div>
+      </div>
+    </div>
+  </aside>
 
   <!-- Side column: legend + forecast + 2 warning cards. Always right —
        standardized across every state, including Sabah/Sarawak, which
@@ -520,6 +554,63 @@
       handle.addEventListener('click', () => {
         setSheetExpanded(!document.documentElement.classList.contains('mobile-sheet-expanded'));
       });
+    }
+
+    // Mobile drawer (<768px) — settings + legend colour key behind the
+    // hamburger. Open state is a single class on <html> (drives both the
+    // drawer slide and the backdrop fade in style.css).
+    function setDrawerOpen(open) {
+      document.documentElement.classList.toggle('drawer-open', open);
+      const btn = document.getElementById('menu-toggle');
+      if (btn) btn.setAttribute('aria-expanded', String(open));
+    }
+
+    function initMobileDrawer() {
+      const btn = document.getElementById('menu-toggle');
+      const closeBtn = document.getElementById('drawer-close');
+      const backdrop = document.getElementById('drawer-backdrop');
+      if (!btn) return;
+      btn.addEventListener('click', () => setDrawerOpen(!document.documentElement.classList.contains('drawer-open')));
+      if (closeBtn) closeBtn.addEventListener('click', () => setDrawerOpen(false));
+      if (backdrop) backdrop.addEventListener('click', () => setDrawerOpen(false));
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.documentElement.classList.contains('drawer-open')) setDrawerOpen(false);
+      });
+    }
+
+    // Single-copy node move: below 768px #theme-toggle, #export-btn and
+    // #map-legend live inside the drawer; at/above 768px they go back to
+    // their exact original homes (parent + next sibling remembered once
+    // at init, before any move). No duplicated markup to drift, and if
+    // this ever fails the nodes simply stay where the static HTML put
+    // them (desktop layout) — a safe fallback, not a blank drawer.
+    function layoutMobileNodes() {
+      const mq = window.matchMedia('(max-width: 767px)');
+      const slots = new Map([
+        ['theme-toggle', 'drawer-theme-slot'],
+        ['export-btn', 'drawer-export-slot'],
+        ['map-legend', 'drawer-legend-slot'],
+      ]);
+      const homes = new Map();
+      const apply = () => {
+        const mobile = mq.matches;
+        if (!mobile) setDrawerOpen(false);
+        slots.forEach((slotId, elId) => {
+          const el = document.getElementById(elId);
+          const slot = document.getElementById(slotId);
+          if (!el || !slot) return;
+          if (!homes.has(el)) homes.set(el, { parent: el.parentNode, next: el.nextSibling });
+          if (mobile) {
+            if (el.parentNode !== slot) slot.appendChild(el);
+          } else {
+            const h = homes.get(el);
+            if (el.parentNode !== h.parent) h.parent.insertBefore(el, h.next);
+          }
+        });
+      };
+      if (mq.addEventListener) mq.addEventListener('change', apply);
+      else if (mq.addListener) mq.addListener(apply);
+      apply();
     }
 
     // One-line peek-state summary for single-state mode (#sheet-handle-text).
@@ -1854,6 +1945,8 @@
         : '—';
       const text = `Dikemaskini ${timeText} · Auto setiap 3 minit`;
       document.getElementById('footer-updated').textContent = text;
+      const drawerUpdated = document.getElementById('drawer-updated');
+      if (drawerUpdated) drawerUpdated.textContent = text;
       if (isNationwide) {
         document.getElementById('nationwide-summary-footer').textContent =
           `Sumber data: MET Malaysia / data.gov.my · ${text}`;
@@ -2359,6 +2452,8 @@
       initLocationPopover();
       initNationwideSummaryToggle();
       initSheetHandle();
+      initMobileDrawer();
+      layoutMobileNodes();
       initThemeToggle();
       if (EXPORT_PARAM) initExportButton();
       renderClock();
