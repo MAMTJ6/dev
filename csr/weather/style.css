@@ -66,6 +66,14 @@ html.light #map.leaflet-container {
          0 0 3px rgba(0, 0, 0, 0.6);
     text-align: center;
     line-height: 1.15;
+    /* Google-style fade for the declutter (see declutterDistrictLabels()
+       in index.html) — collided labels fade instead of popping. */
+    transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+
+.leaflet-tooltip.district-label-pill.label-collided {
+    opacity: 0;
+    visibility: hidden;
 }
 
 /* State name on the nationwide zoomed-in label's second line — smaller

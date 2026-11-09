@@ -1380,11 +1380,13 @@
     // label (buildDistrictLayer()), which is fine for 11 big Pahang
     // districts but piles up in dense states (Sarawak's Kuching/
     // Samarahan cluster, Sabah, Selangor). After every zoom/pan, keep
-    // the biggest districts' labels first and hide any label overlapping
-    // a kept one; hidden labels reappear on zoom-in as their rects
-    // separate. The focused district's label is always kept. No
-    // per-state tuning — real measured pixels, not guessed zooms.
-    // Nationwide mode is excluded — it has its own label regime above.
+    // labels Google-style: warned districts outrank quiet ones regardless
+    // of size, then biggest area first, ties to the lower screen position
+    // (their documented rule); anything overlapping a kept label fades
+    // out instead of popping, and reappears on zoom-in as rects separate.
+    // The focused district is always kept (REQUIRED). No per-state tuning
+    // — real measured pixels, not guessed zooms. Nationwide mode is
+    // excluded — it has its own label regime above.
     function declutterDistrictLabels() {
       if (isNationwide || !geojsonLayer || !map) return;
       const areas = new Map();
@@ -1392,20 +1394,18 @@
         const gb = l.getBounds();
         areas.set(l.feature.properties.name, Math.max((gb.getNorth() - gb.getSouth()) * (gb.getEast() - gb.getWest()), 0));
       });
+      const stateWash = warningScope === 'state';
       const items = Array.from(map.getContainer().querySelectorAll('.leaflet-tooltip.district-label-pill'))
         .map(el => ({ el, r: el.getBoundingClientRect(), name: el.textContent.trim() }))
-        .map(it => ({ ...it, area: areas.get(it.name) || 0 }))
+        .map(it => ({ ...it, area: areas.get(it.name) || 0, warned: (stateWash || warningDistricts.has(it.name)) ? 1 : 0 }))
         .filter(it => it.r.width || it.r.height);
-      items.sort((a, b) => b.area - a.area);
+      items.sort((a, b) => (b.warned - a.warned) || (b.area - a.area) || (b.r.top - a.r.top));
       const kept = [];
       const overlaps = (a, b, pad) => a.left < b.right + pad && b.left < a.right + pad && a.top < b.bottom + pad && b.top < a.bottom + pad;
       items.forEach(it => {
-        if (it.name === focusDistrict || !kept.some(k => overlaps(k, it.r, 2))) {
-          it.el.style.display = '';
-          kept.push(it.r);
-        } else {
-          it.el.style.display = 'none';
-        }
+        const hide = it.name !== focusDistrict && kept.some(k => overlaps(k, it.r, 2));
+        it.el.classList.toggle('label-collided', hide);
+        if (!hide) kept.push(it.r);
       });
     }
 
