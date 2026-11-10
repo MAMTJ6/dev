@@ -8,7 +8,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Bricolage+Grotesque:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Tailwind CSS Play CDN — matches root index.html's setup -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -18,8 +18,8 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-            display: ['Archivo', 'Inter', 'system-ui', 'sans-serif'],
+            sans: ['Plus Jakarta Sans', 'Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            display: ['Bricolage Grotesque', 'Archivo', 'Inter', 'system-ui', 'sans-serif'],
           },
         },
       },
@@ -43,7 +43,7 @@
        ?v= cache-buster — bump it on every style.css change so phones
        drop their cached copy immediately instead of sitting on stale
        CSS (Chrome Android caches the query-less URL aggressively). -->
-  <link rel="stylesheet" href="/csr/weather/style.css?v=4" />
+  <link rel="stylesheet" href="/csr/weather/style.css?v=5" />
 </head>
 
 <body class="font-sans antialiased bg-zinc-50 dark:bg-zinc-950 text-zinc-950 dark:text-zinc-50">
@@ -190,6 +190,36 @@
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M4 6h16a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zm0 5h16a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zm0 5h16a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2z"/></svg>
       </button>
     </header>
+    <!-- Mobile-first floating toolbar (titisan-style): quick map actions.
+         Desktop never shows this (see style.css). Buttons wire to existing
+         functions — no duplicated state. -->
+    <div id="m-toolbar" aria-label="Tindakan pantas peta">
+      <button id="m-layers-btn" type="button" aria-label="Lapisan peta">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="17" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+      </button>
+      <button id="m-search-btn" type="button" aria-label="Cari negeri / daerah">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16.5 16.5 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <button id="m-locate-btn" type="button" aria-label="Kembali ke paparan negeri">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <button id="m-info-btn" type="button" aria-label="Maklumat legenda">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="8" r="1.2" fill="currentColor"/></svg>
+      </button>
+    </div>
+    <!-- Mobile status card (titisan-style): state/district + tier pill +
+         warned count + time. Tap expands the bottom sheet. -->
+    <button id="m-status-card" type="button" aria-expanded="false" aria-controls="side-column">
+      <span id="m-status-text">
+        <strong id="m-status-name">Malaysia</strong>
+        <small id="m-status-sub">Pilih negeri · —</small>
+      </span>
+      <span id="m-status-right">
+        <span id="m-status-pill" data-tier="">Tiada</span>
+        <strong id="m-status-count">—</strong>
+      </span>
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="m9 5 7 7-7 7"/></svg>
+    </button>
   </div>
 
   <!-- Mobile-only drawer (<768px): settings + legend colour key behind a
@@ -333,6 +363,63 @@
     </button>
     <ul id="nationwide-summary-list" class="text-sm text-zinc-700 dark:text-zinc-300 px-4 pb-3 max-h-[40vh] overflow-y-auto"></ul>
   </div>
+
+  <!-- Mobile-first bottom nav (titisan-style floating pill). Desktop never
+       shows this. Peta = reset view; Amaran = expand sheet; Lapisan =
+       layers sheet; Tetapan = settings drawer. -->
+  <nav id="m-bottomnav" aria-label="Navigasi utama">
+    <button type="button" data-nav="map" class="active">
+      <svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9.5V21h5v-6h4v6h5V9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Peta</span>
+    </button>
+    <button type="button" data-nav="warnings">
+      <svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 14l3.5-3.5 2.5 2.5L17 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 9h3v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Amaran</span>
+    </button>
+    <button type="button" data-nav="layers">
+      <svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+      <span>Lapisan</span>
+    </button>
+    <button type="button" data-nav="settings">
+      <svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="15" cy="7" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="17" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+      <span>Tetapan</span>
+    </button>
+  </nav>
+
+  <!-- Mobile layers sheet (titisan "Lapisan peta"): toggles for Perairan
+       + legend key. Desktop never shows this. -->
+  <div id="m-layers-backdrop"></div>
+  <section id="m-layers-sheet" aria-label="Lapisan peta" hidden>
+    <span class="sheet-grabber"></span>
+    <div class="sheet-top">
+      <span class="sheet-kicker">PETA</span>
+      <button id="m-layers-close" type="button" aria-label="Tutup lapisan peta">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg>
+      </button>
+    </div>
+    <h2>Lapisan peta</h2>
+    <p class="sheet-lede">Pilih lapisan yang hendak dipaparkan pada peta.</p>
+    <div class="layer-card">
+      <label class="layer-row">
+        <span class="layer-icon">🌊</span>
+        <span class="layer-text"><strong>Perairan</strong><small>Garis pantai amaran laut.</small></span>
+        <input id="m-coastal-toggle" type="checkbox" checked>
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+      <div class="layer-row layer-static">
+        <span class="layer-icon">💨</span>
+        <span class="layer-text"><strong>Angin</strong><small id="m-wind-note">Zarahan ujian (?windtest).</small></span>
+        <span id="m-wind-state" class="layer-state">Mati</span>
+      </div>
+      <div class="layer-row layer-static">
+        <span class="layer-icon">🗺️</span>
+        <span class="layer-text"><strong>Legenda</strong><small>Kunci warna tahap amaran.</small></span>
+        <button id="m-legend-btn" type="button">Lihat</button>
+      </div>
+    </div>
+    <p class="sheet-note">Warna peta menunjukkan tahap amaran. Ketik butang maklumat untuk maksud setiap warna.</p>
+    <button id="m-layers-done" type="button">Selesai</button>
+  </section>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -670,6 +757,111 @@
         Object.values(parsed.tiers || {}).forEach(t => { if (TIER_RANK[t] > TIER_RANK[tier]) tier = t; });
       });
       textEl.textContent = `${focusDistrict} — ${tierRowLabel(tier)}`;
+    }
+
+    // Mobile status card (titisan-style): name + tier pill + warned count.
+    // Mirrors updateSheetHandleText()'s tier math; nationwide counts
+    // warned districts from nationwideDistrictTiers.
+    function updateMobileStatus() {
+      const card = document.getElementById('m-status-card');
+      if (!card) return;
+      const nameEl = document.getElementById('m-status-name');
+      const subEl = document.getElementById('m-status-sub');
+      const pill = document.getElementById('m-status-pill');
+      const countEl = document.getElementById('m-status-count');
+      const timeText = new Date().toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' }).replace('PG', 'AM').replace('PTG', 'PM');
+      const area = isNationwide ? 'Malaysia · Semua negeri' : (focusDistrict || cfg.displayName);
+      const scope = isNationwide ? 'Negeri' : (focusDistrict ? 'Daerah' : 'Negeri');
+      if (nameEl) nameEl.textContent = area;
+      if (subEl) subEl.textContent = `Malaysia · ${scope} · ${timeText}`;
+      let tier = '', count = '—';
+      if (isNationwide) {
+        const tiers = nationwideDistrictTiers ? [...nationwideDistrictTiers.values()] : [];
+        count = tiers.length ? String(tiers.length) : '—';
+        tier = '';
+        tiers.forEach(t => { if (!tier || (TIER_RANK[t] || 0) > (TIER_RANK[tier] || 0)) tier = t; });
+      } else {
+        const land = activeWarnings.filter(w => {
+          const s = stateScopeOf(w, cfg).scope;
+          return s && s !== 'marine';
+        });
+        count = land.length ? String(new Set(land.flatMap(w => [...(stateScopeOf(w, cfg).districts || [])])).size || land.length) : (land.length ? String(land.length) : '—');
+        land.forEach(w => {
+          const parsed = stateScopeOf(w, cfg);
+          if (parsed.tier && (!tier || TIER_RANK[parsed.tier] > TIER_RANK[tier])) tier = parsed.tier;
+          Object.values(parsed.tiers || {}).forEach(t => { if (!tier || TIER_RANK[t] > TIER_RANK[tier]) tier = t; });
+        });
+      }
+      if (pill) {
+        pill.dataset.tier = tier || '';
+        pill.textContent = tier ? tierRowLabel(tier) : 'Tiada';
+      }
+      if (countEl) countEl.textContent = count;
+    }
+
+    // Mobile redesign wiring: toolbar pills, status card tap, layers
+    // sheet, bottom nav. All delegate to existing functions — no new
+    // state of their own (except the sheet's own hidden flag).
+    function setLayersOpen(open) {
+      const sheet = document.getElementById('m-layers-sheet');
+      const backdrop = document.getElementById('m-layers-backdrop');
+      if (!sheet || !backdrop) return;
+      sheet.hidden = !open;
+      backdrop.hidden = !open;
+      document.querySelector('#m-bottomnav [data-nav="layers"]')?.classList.toggle('active', open);
+    }
+
+    function initMobileRedesign() {
+      document.getElementById('m-layers-btn')?.addEventListener('click', () => setLayersOpen(true));
+      document.getElementById('m-info-btn')?.addEventListener('click', () => setLayersOpen(true));
+      document.getElementById('m-layers-close')?.addEventListener('click', () => setLayersOpen(false));
+      document.getElementById('m-layers-done')?.addEventListener('click', () => setLayersOpen(false));
+      document.getElementById('m-layers-backdrop')?.addEventListener('click', () => setLayersOpen(false));
+      document.getElementById('m-search-btn')?.addEventListener('click', () => {
+        const pop = document.getElementById('location-popover');
+        if (!pop) return;
+        pop.hidden = !pop.hidden;
+        if (!pop.hidden) document.getElementById('stateSelect')?.focus();
+      });
+      document.getElementById('m-locate-btn')?.addEventListener('click', () => resetMapView());
+      document.getElementById('m-status-card')?.addEventListener('click', () => {
+        setSheetExpanded(true);
+        document.querySelectorAll('#m-bottomnav button').forEach(b => b.classList.toggle('active', b.dataset.nav === 'warnings'));
+      });
+      document.getElementById('m-legend-btn')?.addEventListener('click', () => {
+        setLayersOpen(false);
+        setDrawerOpen(true);
+      });
+      // Perairan toggle in the layers sheet mirrors the legend checkbox.
+      const mCoast = document.getElementById('m-coastal-toggle');
+      if (mCoast) {
+        mCoast.checked = coastalEnabled;
+        mCoast.addEventListener('change', () => {
+          coastalEnabled = mCoast.checked;
+          renderCoastline();
+          renderCoastalStatus();
+        });
+      }
+      const windNote = document.getElementById('m-wind-note');
+      const windState = document.getElementById('m-wind-state');
+      if (windNote && windState && WINDTEST_PARAM) {
+        windNote.textContent = 'Lapisan zarah sintetik aktif.';
+        windState.textContent = 'Aktif';
+      }
+      document.querySelectorAll('#m-bottomnav button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const nav = btn.dataset.nav;
+          document.querySelectorAll('#m-bottomnav button').forEach(b => b.classList.toggle('active', b === btn));
+          if (nav === 'map') { setLayersOpen(false); setDrawerOpen(false); setSheetExpanded(false); resetMapView(); }
+          else if (nav === 'warnings') { setLayersOpen(false); setSheetExpanded(true); }
+          else if (nav === 'layers') { setDrawerOpen(false); setLayersOpen(true); }
+          else if (nav === 'settings') { setLayersOpen(false); setDrawerOpen(true); }
+        });
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') setLayersOpen(false);
+      });
+      updateMobileStatus();
     }
 
     // =========================================================
@@ -2033,6 +2225,7 @@
       }
 
       updateSheetHandleText();
+      updateMobileStatus();
       fitSideColumnToViewport();
     }
 
@@ -2164,6 +2357,7 @@
 
       countChip.hidden = nationwidePerState.size === 0;
       countChip.textContent = nationwidePerState.size;
+      updateMobileStatus();
     }
 
     function updateFooter() {
@@ -2199,6 +2393,8 @@
       const toggle = document.getElementById('coastal-toggle');
       if (toggle) {
         toggle.checked = coastalEnabled;
+        const mCoast = document.getElementById('m-coastal-toggle');
+        if (mCoast) mCoast.checked = coastalEnabled;
         if (!toggle.dataset.bound) {
           toggle.dataset.bound = '1';
           toggle.addEventListener('change', () => {
@@ -2864,6 +3060,7 @@
       initNationwideSummaryToggle();
       initSheetHandle();
       initMobileDrawer();
+      initMobileRedesign();
       layoutMobileNodes();
       initThemeToggle();
       if (EXPORT_PARAM) initExportButton();
