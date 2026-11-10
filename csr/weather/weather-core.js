@@ -1061,6 +1061,40 @@ function getTestWarningFixture(param, cfg) {
   return undefined;
 }
 
+// Multi-state test specs: `Kelantan:first;Terengganu:third;Pahang:second`
+// (groups split on ';', each `State:category` in either order, or a bare
+// category applying to the active state / every coastal state). Returns
+// [{ state: rawName|null, category }]; unknown single tokens fall back to
+// 'first' so `Kelantan` alone means Kelantan waters, first category.
+function parseCoastalTestGroups(param) {
+  const CATS = ['first', 'second', 'third', 'searise', 'thunder'];
+  const v = String(param == null ? '' : param).trim();
+  if (!v) return [{ state: null, category: 'first' }];
+  return v.split(';').map(s => s.trim()).filter(Boolean).map(g => {
+    const parts = g.split(':').map(s => s.trim()).filter(Boolean);
+    if (parts.length === 1) {
+      const c = parts[0].toLowerCase();
+      if (CATS.includes(c)) return { state: null, category: c };
+      return { state: parts[0], category: 'first' };
+    }
+    const a = parts[0].toLowerCase(), b = parts[1].toLowerCase();
+    if (CATS.includes(b)) return { state: parts[0], category: b };
+    if (CATS.includes(a)) return { state: parts[1], category: a };
+    return { state: parts[0], category: 'first' };
+  });
+}
+
+// Single-state slice of a (possibly multi) test spec: the group naming
+// this state wins, else a bare category, else nothing (other states'
+// groups don't leak onto the active state).
+function getCoastalFixtureForState(param, cfg) {
+  const groups = parseCoastalTestGroups(param);
+  const lname = s => String(s || '').toLowerCase();
+  const named = groups.find(g => g.state && (lname(g.state) === lname(cfg.apiName) || lname(g.state) === lname(cfg.displayName)));
+  const g = named || groups.find(x => !x.state);
+  if (!g) return [];
+  return getTestCoastalFixture(g.category, cfg) || [];
+}
 // ---------------------------------------------------------------------
 // ?testcoastalwarning= fixture — Phase 1 coastline test path, separate
 // from ?testWarning= so land fixtures stay untouched. Values:

@@ -1011,11 +1011,12 @@
         },
         {
           name: '?testcoastalwarning=',
-          desc: 'Fasa 1 perairan: garis pantai sahaja, tiada isian (data ujian, bukan amaran sebenar). Nilai: first/second/third/searise/thunder (kosong = first).',
+          desc: 'Fasa 1 perairan: garis pantai sahaja, tiada isian (data ujian, bukan amaran sebenar). Nilai: first/second/third/searise/thunder (kosong = first). Berbilang negeri: Negeri:kategori dipisah ";" ( nationwide sahaja ).',
           examples: [
             '?state=pahang&testcoastalwarning',
             '?state=kelantan&testcoastalwarning=third',
             '?state=malaysia&testcoastalwarning=first',
+            '?state=malaysia&testcoastalwarning=kelantan:first;terengganu:third;pahang:second',
           ],
         },
         {
@@ -2246,14 +2247,31 @@
         nationwideStateWash = state.stateWash;
         nationwidePerState = state.perState;
         nationwideActiveWarnings = combined.filter(isWarningActive);
-        // Phase 1 coastline nationwide — same unfiltered batch; test param
-        // builds one synthetic marine warning per coastal state.
+        // Phase 1 coastline nationwide — state-qualified groups
+        // (`Kelantan:first;Terengganu:third`) build one synthetic warning
+        // per named state; a bare category keeps the old every-state shape.
         if (TEST_COASTAL_PARAM !== null) {
           const synth = [];
-          Object.values(STATE_CONFIG).filter(s => s.apiName && s.stateCode && s.coastal && s.coastal.length).forEach(s => {
-            const f = getTestCoastalFixture(TEST_COASTAL_PARAM || 'first', s);
-            if (f) synth.push(...f);
-          });
+          const groups = parseCoastalTestGroups(TEST_COASTAL_PARAM);
+          const resolveTestState = (name) => {
+            const n = String(name || '').toLowerCase();
+            return Object.values(STATE_CONFIG).find(s => s.apiName &&
+              (s.apiName.toLowerCase() === n || (s.displayName || '').toLowerCase() === n)) || STATE_CONFIG[n] || null;
+          };
+          if (groups.some(g => g.state)) {
+            groups.filter(g => g.state).forEach(g => {
+              const sc = resolveTestState(g.state);
+              if (!sc) { console.warn('[weather] Unknown state in ?testcoastalwarning=, skipped:', g.state); return; }
+              const f = getTestCoastalFixture(g.category, sc);
+              if (f) synth.push(...f);
+            });
+          } else {
+            const cat = (groups[0] && groups[0].category) || 'first';
+            Object.values(STATE_CONFIG).filter(s => s.apiName && s.stateCode && s.coastal && s.coastal.length).forEach(s => {
+              const f = getTestCoastalFixture(cat, s);
+              if (f) synth.push(...f);
+            });
+          }
           nationwideCoastal = computeCoastalNationwide(synth, STATE_CONFIG);
           coastalWarnings = synth;
         } else {
@@ -2279,9 +2297,10 @@
       }
 
       const fixture = getTestWarningFixture(TEST_WARNING_PARAM, cfg);
-      // Phase 1 coastline source: live thunder batch (marine bulletins ride
-      // along in it) plus the ?testcoastalwarning= synthetic when present.
-      const coastalFixture = TEST_COASTAL_PARAM !== null ? getTestCoastalFixture(TEST_COASTAL_PARAM || 'first', cfg) : undefined;
+      // Phase 1 coastline source: the ?testcoastalwarning= synthetic for
+      // this state when present (state-qualified groups pick their own
+      // slice, so other states' groups never leak in).
+      const coastalFixture = TEST_COASTAL_PARAM !== null ? getCoastalFixtureForState(TEST_COASTAL_PARAM, cfg) : undefined;
       if (fixture !== undefined) {
         activeWarnings = fixture.filter(isWarningActive);
         const state = computeWarningState(activeWarnings, cfg);
