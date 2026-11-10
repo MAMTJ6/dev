@@ -233,6 +233,25 @@ html.light .forecast-slot .slot-icon .wicon {
 }
 
 /* ------------------------------------------------------------------ */
+/* Coastal waterline halo — slow breathing glow. The halo paths carry */
+/* their base translucency as an attribute (opacity 0.25); this CSS    */
+/* `opacity` animation overrides it while running and yields back to   */
+/* it under prefers-reduced-motion. Core line stays steady.            */
+/* ------------------------------------------------------------------ */
+@keyframes coast-halo-pulse {
+    0%, 100% { opacity: 0.15; }
+    50% { opacity: 0.5; }
+}
+
+.coast-halo {
+    animation: coast-halo-pulse 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .coast-halo { animation: none; }
+}
+
+/* ------------------------------------------------------------------ */
 /* ?raw debug overlay — fixed to the real viewport, always on top.     */
 /* Colors are fixed, not theme tokens — a debug view should look the   */
 /* same regardless of the page's own light/dark toggle.                */

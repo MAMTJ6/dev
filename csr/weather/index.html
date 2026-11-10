@@ -43,7 +43,7 @@
        ?v= cache-buster — bump it on every style.css change so phones
        drop their cached copy immediately instead of sitting on stale
        CSS (Chrome Android caches the query-less URL aggressively). -->
-  <link rel="stylesheet" href="/csr/weather/style.css?v=2" />
+  <link rel="stylesheet" href="/csr/weather/style.css?v=3" />
 </head>
 
 <body class="font-sans antialiased bg-zinc-50 dark:bg-zinc-950 text-zinc-950 dark:text-zinc-50">
@@ -1261,7 +1261,7 @@
         // always paints on top.
         const pushRun = (cur, g) => {
           if (!cur || cur.length < 2) return;
-          layers.push(L.polyline(cur, { color: g.color, weight: g.weight * 2 + 2, opacity: 0.25, interactive: false }));
+          layers.push(L.polyline(cur, { color: g.color, weight: g.weight * 2 + 2, opacity: 0.25, interactive: false, className: 'coast-halo' }));
           layers.push(L.polyline(cur, { color: g.color, weight: g.weight, opacity: 1, interactive: false }));
         };
         const layers = [];
