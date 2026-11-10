@@ -1256,6 +1256,14 @@
       }).filter(Boolean);
       if (!groups.length) return;
       ensureCoastline().then(fc => {
+        // Halo stack: a wide translucent underlay beneath the solid core
+        // reads as a soft fade into the sea. Halo first so the core
+        // always paints on top.
+        const pushRun = (cur, g) => {
+          if (!cur || cur.length < 2) return;
+          layers.push(L.polyline(cur, { color: g.color, weight: g.weight * 2 + 2, opacity: 0.25, interactive: false }));
+          layers.push(L.polyline(cur, { color: g.color, weight: g.weight, opacity: 1, interactive: false }));
+        };
         const layers = [];
         groups.forEach(g => {
           const [x0, y0, x1, y1] = g.bbox;
@@ -1274,11 +1282,11 @@
                 if (!cur) cur = [];
                 cur.push([lat, lon]);
               } else if (cur) {
-                if (cur.length > 1) layers.push(L.polyline(cur, { color: g.color, weight: g.weight, opacity: 1, interactive: false }));
+                pushRun(cur, g);
                 cur = null;
               }
             });
-            if (cur && cur.length > 1) layers.push(L.polyline(cur, { color: g.color, weight: g.weight, opacity: 1, interactive: false }));
+            pushRun(cur, g);
           });
         });
         if (!layers.length) return;
