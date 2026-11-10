@@ -148,7 +148,7 @@
     "apiName": "Perak",
     "stateCode": "PRK",
     "districts": ["Hulu Perak", "Batang Padang", "Bagan Datuk", "Manjung", "Perak Tengah", "Selama", "Hilir Perak", "Kerian", "Kampar", "Muallim", "Kinta", "Kuala Kangsar", "Larut Dan Matang"],
-    "aliases": {},
+    "aliases": { "larut matang": "Larut Dan Matang" },
     "coastal": ["Kerian", "Larut Dan Matang", "Manjung", "Hilir Perak", "Bagan Datuk"],
     "zoom": 9.00,
     "center": [4.8155, 101.7979],
