@@ -1768,6 +1768,10 @@
           selectionHaloLayer = L.geoJSON(layer.feature, { style: SELECTION_HALO_STYLE }).addTo(map);
           geojsonLayer.resetStyle(layer);
           layer.bringToFront();
+          // Coastal test mode stays at state zoom — a district pick updates
+          // the halo + forecast card only, never reframes the map, so the
+          // full coastline stays in view while testing.
+          if (TEST_COASTAL_PARAM !== null) return;
           // Adaptive mobile framing — a small district expands the sheet
           // and frames into the visible strip (focusFrameOptions()); a
           // big district would only squeeze into an overview sliver
