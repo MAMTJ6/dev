@@ -255,7 +255,7 @@
         <span class="w-3.5 h-3.5 rounded shrink-0" style="background:#fdfe00;border:3px dashed #2516d2"></span>Hujan + Ribut Petir
       </div>
       <div id="coastal-legend-row" hidden class="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 mt-1.5">
-        <span class="w-3.5 h-3.5 rounded shrink-0" style="background:transparent;border:3px solid #0284c7"></span>Amaran Perairan (garis pantai)
+        <span id="coastal-legend-swatch" class="w-3.5 h-3.5 rounded shrink-0" style="background:transparent;border:3px solid #0284c7"></span>Amaran Perairan (garis pantai)
       </div>
       <div id="coastal-status" hidden class="mt-2 text-[11px] leading-relaxed text-sky-700 dark:text-sky-300 font-semibold"></div>
     </section>
@@ -1162,10 +1162,9 @@
     // an approximation of the shore (and neighbouring districts don't
     // share exactly identical border nodes, so edge-derivation leaked
     // inland — the ticks seen in testing). The overlay draws the warned
-    // stretch of the real waterline: shoreline points inside the warned
-    // coastal districts' bbox, expanded slightly so offshore wiggles and
-    // islands (e.g. Tioman) stay included. Lazy-loaded, test-gated.
-    const COASTLINE_COLOR = '#0284c7';
+    // stretch of the real waterline in the warning's own category colour:
+    // shoreline points near the warned districts' edges. Lazy-loaded,
+    // test-gated.
     const COASTLINE_URL = '/csr/weather/data/coastline.geojson';
     // Max shore-to-district gap: the district edges only approximate the
     // waterline, so allow a few km — small enough that the highlight stops
@@ -1182,31 +1181,38 @@
       return coastlineData;
     }
 
-    // Warned coastal district names for the active view (single-state set
-    // or every nationwide-coastal state's cfg.coastal list).
-    function warnedCoastNames() {
-      const names = new Set();
+    // Warned-coast groups keep their own tier so the line wears the
+    // warning's category colour (third=red, second=orange, first=yellow,
+    // thunderstorm-over-waters=blue — the same ladder as the land tiers).
+    // Single-state: one group; nationwide: one group per warned state.
+    function warnedCoastGroups() {
+      const groups = [];
+      const collect = (names, tier) => {
+        const feats = [];
+        fullGeoData.features.forEach(f => { if (names.has(f.properties.name)) feats.push(f); });
+        if (feats.length) groups.push({ feats, tier, weight: isNationwide ? 3 : 4 });
+      };
       if (isNationwide) {
         if (nationwideCoastal && nationwideCoastal.size && STATE_CONFIG) {
           nationwideCoastal.forEach((v, code) => {
             const sc = Object.values(STATE_CONFIG).find(s => s.stateCode === code);
-            ((sc && sc.coastal) || []).forEach(d => names.add(d));
+            const names = new Set((sc && sc.coastal) || []);
+            if (names.size) collect(names, v.tier);
           });
         }
-      } else if (warningCoastal && warningCoastal.districts) {
-        warningCoastal.districts.forEach(d => names.add(d));
+      } else if (warningCoastal && warningCoastal.districts && warningCoastal.districts.size) {
+        collect(new Set(warningCoastal.districts), warningCoastal.tier);
       }
-      return names;
+      return groups;
     }
 
     // Warned districts' outer-ring segments (lon/lat degrees) — the
     // shoreline keeps only points near these, so the highlight follows
     // the warned districts exactly instead of filling a padded rectangle
     // whose corners reach into the neighbour states' shores.
-    function warnedCoastSegments(names) {
+    function warnedCoastSegments(feats) {
       const segs = [];
-      fullGeoData.features.forEach(f => {
-        if (!names.has(f.properties.name)) return;
+      feats.forEach(f => {
         const geom = f.geometry;
         if (!geom) return;
         const polys = geom.type === 'Polygon' ? [geom.coordinates] : (geom.type === 'MultiPolygon' ? geom.coordinates : []);
@@ -1234,47 +1240,49 @@
     function renderCoastline() {
       if (coastalLayer) { map.removeLayer(coastalLayer); coastalLayer = null; }
       if (TEST_COASTAL_PARAM === null || !fullGeoData) return;
-      const names = warnedCoastNames();
-      if (!names.size) return;
-      const segs = warnedCoastSegments(names);
-      if (!segs.length) return;
-      // Segments' own bbox first — cheap reject before the per-point scan.
-      let x0 = 999, y0 = 999, x1 = -999, y1 = -999;
-      segs.forEach(g => {
-        if (g[0] < x0) x0 = g[0]; if (g[2] < x0) x0 = g[2];
-        if (g[0] > x1) x1 = g[0]; if (g[2] > x1) x1 = g[2];
-        if (g[1] < y0) y0 = g[1]; if (g[3] < y0) y0 = g[3];
-        if (g[1] > y1) y1 = g[1]; if (g[3] > y1) y1 = g[3];
-      });
-      const m = COASTLINE_MAX_KM / 111.2;
-      x0 -= m; x1 += m; y0 -= m; y1 += m;
-      const weight = isNationwide ? 3 : 4;
-      ensureCoastline().then(fc => {
-        const lines = [];
-        (fc.features || []).forEach(feat => {
-          if (!feat.geometry || feat.geometry.type !== 'LineString') return;
-          let cur = null;
-          feat.geometry.coordinates.forEach(([lon, lat]) => {
-            let near = false;
-            if (lon >= x0 && lon <= x1 && lat >= y0 && lat <= y1) {
-              for (let s = 0; s < segs.length; s++) {
-                const g = segs[s];
-                if (segDistKm(lon, lat, g[0], g[1], g[2], g[3]) <= COASTLINE_MAX_KM) { near = true; break; }
-              }
-            }
-            if (near) {
-              if (!cur) cur = [];
-              cur.push([lat, lon]);
-            } else if (cur) {
-              if (cur.length > 1) lines.push(cur);
-              cur = null;
-            }
-          });
-          if (cur && cur.length > 1) lines.push(cur);
+      const groups = warnedCoastGroups().map(g => {
+        const segs = warnedCoastSegments(g.feats);
+        if (!segs.length) return null;
+        // Segments' own bbox first — cheap reject before the per-point scan.
+        let x0 = 999, y0 = 999, x1 = -999, y1 = -999;
+        segs.forEach(s => {
+          if (s[0] < x0) x0 = s[0]; if (s[2] < x0) x0 = s[2];
+          if (s[0] > x1) x1 = s[0]; if (s[2] > x1) x1 = s[2];
+          if (s[1] < y0) y0 = s[1]; if (s[3] < y0) y0 = s[3];
+          if (s[1] > y1) y1 = s[1]; if (s[3] > y1) y1 = s[3];
         });
-        if (!lines.length) return;
-        coastalLayer = L.layerGroup(lines.map(path =>
-          L.polyline(path, { color: COASTLINE_COLOR, weight, opacity: 1, interactive: false })));
+        const m = COASTLINE_MAX_KM / 111.2;
+        return { ...g, segs, color: (TIER_COLORS[g.tier] || TIER_COLORS.amaran).fill, bbox: [x0 - m, y0 - m, x1 + m, y1 + m] };
+      }).filter(Boolean);
+      if (!groups.length) return;
+      ensureCoastline().then(fc => {
+        const layers = [];
+        groups.forEach(g => {
+          const [x0, y0, x1, y1] = g.bbox;
+          (fc.features || []).forEach(feat => {
+            if (!feat.geometry || feat.geometry.type !== 'LineString') return;
+            let cur = null;
+            feat.geometry.coordinates.forEach(([lon, lat]) => {
+              let near = false;
+              if (lon >= x0 && lon <= x1 && lat >= y0 && lat <= y1) {
+                for (let s = 0; s < g.segs.length; s++) {
+                  const sg = g.segs[s];
+                  if (segDistKm(lon, lat, sg[0], sg[1], sg[2], sg[3]) <= COASTLINE_MAX_KM) { near = true; break; }
+                }
+              }
+              if (near) {
+                if (!cur) cur = [];
+                cur.push([lat, lon]);
+              } else if (cur) {
+                if (cur.length > 1) layers.push(L.polyline(cur, { color: g.color, weight: g.weight, opacity: 1, interactive: false }));
+                cur = null;
+              }
+            });
+            if (cur && cur.length > 1) layers.push(L.polyline(cur, { color: g.color, weight: g.weight, opacity: 1, interactive: false }));
+          });
+        });
+        if (!layers.length) return;
+        coastalLayer = L.layerGroup(layers);
         coastalLayer.addTo(map);
       }).catch(err => console.warn('[weather] coastline overlay failed:', err.message));
     }
@@ -2162,6 +2170,15 @@
     // mobile drawer (single-copy node move) carries it automatically.
     // Test-only: hidden unless ?testcoastalwarning= is present — live
     // marine bulletins never paint. Clearly labelled test data.
+    // Legend swatch follows the active line colour: the single-state tier,
+    // or the unanimous tier nationwide (mixed tiers keep default blue).
+    function paintCoastalSwatch(tiers) {
+      const sw = document.getElementById('coastal-legend-swatch');
+      if (!sw) return;
+      const uniq = [...new Set(tiers.filter(Boolean))];
+      sw.style.borderColor = uniq.length === 1 ? (TIER_COLORS[uniq[0]] || TIER_COLORS.amaran).fill : '#0284c7';
+    }
+
     function renderCoastalStatus() {
       const el = document.getElementById('coastal-status');
       const row = document.getElementById('coastal-legend-row');
@@ -2180,6 +2197,7 @@
         });
         el.hidden = false;
         el.textContent = `🌊 Perairan: ${parts.join(' • ')}${TEST_COASTAL_PARAM !== null ? ' (data ujian)' : ''}`;
+        paintCoastalSwatch([...nationwideCoastal.values()].map(v => v.tier));
         return;
       }
       if (!warningCoastal.tier) {
@@ -2189,6 +2207,7 @@
       }
       el.hidden = false;
       el.textContent = `🌊 Perairan ${cfg.displayName}: ${MARINE_CATEGORY_LABEL[warningCoastal.category] || warningCoastal.category}${TEST_COASTAL_PARAM !== null ? ' (data ujian, bukan amaran sebenar)' : ''}`;
+      paintCoastalSwatch([warningCoastal.tier]);
     }
 
     // Nationwide mode: one thunderstorm fetch (buildWarningApiUrl omits
