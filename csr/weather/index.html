@@ -1156,13 +1156,15 @@
     function overlapStyle(tier, weight) {
       return { ...districtWarningStyle(tier), color: '#2516d2', weight, dashArray: '6 4' };
     }
-    // Phase 1 coastline paint: stroke-only, zero fill — never reads as a
-    // land warning. Border takes the tier hue (third=red, second=orange,
-    // first=yellow, thunderstorm-over-waters=blue). Land fill always wins
-    // when both apply; this only paints coastal districts with NO land tier.
+    // Phase 1 coastline paint: fixed marine-blue outline, zero fill when
+    // land is clear. When land + coastal coincide, the caller keeps the
+    // land fill and swaps only the border to this same marine blue — one
+    // border can't carry two signals, so fill stays land truth, outline
+    // carries coastal, category lives in the status text. Fixed hue (not
+    // tier hue) so first-category yellow still reads on a yellow fill.
+    const COASTAL_OUTLINE_COLOR = '#0284c7';
     function coastalStyle(tier, weight) {
-      const c = TIER_COLORS[tier] || TIER_COLORS.amaran;
-      return { fillColor: '#ffffff', fillOpacity: 0, color: c.fill, weight, opacity: 1 };
+      return { fillColor: '#ffffff', fillOpacity: 0, color: COASTAL_OUTLINE_COLOR, weight, opacity: 1 };
     }
     const MARINE_CATEGORY_LABEL = { first: 'Kategori Pertama', second: 'Kategori Kedua', third: 'Kategori Ketiga', searise: 'Kenaikan Paras Laut', thunderstorm: 'Ribut Petir di Perairan' };
     // Phase 1 coastal compute — single-state: highest marine tier across
@@ -1194,31 +1196,47 @@
 
       if (isNationwide) {
         const tier = nationwideDistrictTiers.get(name);
+        const coast = nationwideCoastal.get(feature.properties.state);
         if (tier && nationwideOverlap.has(name)) return overlapStyle(tier, 3);
-        if (tier) return { ...districtWarningStyle(tier), color: '#8a8a8a', weight: NATIONWIDE_DISTRICT_WEIGHT };
+        // Land + coastal nationwide: land fill, marine-blue border.
+        if (tier) {
+          if (coast) return { ...districtWarningStyle(tier), color: COASTAL_OUTLINE_COLOR, weight: 3 };
+          return { ...districtWarningStyle(tier), color: '#8a8a8a', weight: NATIONWIDE_DISTRICT_WEIGHT };
+        }
         // Vague "whole state, no district detail" wash — scoped to just
         // that state's own features via properties.state, since nationwide
         // mode renders every state at once (unlike single-state mode,
         // where a bare warningScope === 'state' flag was enough because
         // only one state's polygons were ever on screen).
         const wash = nationwideStateWash.get(feature.properties.state);
-        if (wash) return { ...stateWarningStyle(wash), color: '#8a8a8a', weight: NATIONWIDE_DISTRICT_WEIGHT };
+        if (wash) {
+          if (coast) return { ...stateWarningStyle(wash), color: COASTAL_OUTLINE_COLOR, weight: 3 };
+          return { ...stateWarningStyle(wash), color: '#8a8a8a', weight: NATIONWIDE_DISTRICT_WEIGHT };
+        }
         // Phase 1 coastline nationwide: stroke-only per-state coastal tier.
-        const coast = nationwideCoastal.get(feature.properties.state);
         if (coast) return coastalStyle(coast.tier, 3);
         return { ...PAGE_DEFAULT_STYLE, weight: NATIONWIDE_DISTRICT_WEIGHT };
       }
 
       const tier = warningDistricts.get(name);
+      const isCoast = warningCoastal.districts.has(name);
       // District-specific tier paints on top even under a state-wide wash,
       // so "SEKSYEN A: <State> (Maran)" stays visible inside a vaguer
       // whole-state section from another bulletin.
       if (tier && warningOverlap.has(name)) return overlapStyle(tier, 5);
-      if (tier) return { ...districtWarningStyle(tier), color: '#8a8a8a', weight: 2 };
-      if (warningScope === 'state') return { ...stateWarningStyle(warningStateTier), color: '#8a8a8a', weight: 2 };
+      // Land + coastal: keep the land fill (land truth), swap only the
+      // border to marine blue so the coastline still reads over any fill.
+      if (tier) {
+        if (isCoast) return { ...districtWarningStyle(tier), color: COASTAL_OUTLINE_COLOR, weight: 4 };
+        return { ...districtWarningStyle(tier), color: '#8a8a8a', weight: 2 };
+      }
+      if (warningScope === 'state') {
+        if (isCoast) return { ...stateWarningStyle(warningStateTier), color: COASTAL_OUTLINE_COLOR, weight: 4 };
+        return { ...stateWarningStyle(warningStateTier), color: '#8a8a8a', weight: 2 };
+      }
       // Phase 1 coastline: stroke-only on coastal districts with no land
       // warning — land fill always wins above, so this never hides land.
-      if (warningCoastal.districts.has(name)) return coastalStyle(warningCoastal.tier, 4);
+      if (isCoast) return coastalStyle(warningCoastal.tier, 4);
       return PAGE_DEFAULT_STYLE;
     }
 
