@@ -1156,99 +1156,92 @@
     function overlapStyle(tier, weight) {
       return { ...districtWarningStyle(tier), color: '#2516d2', weight, dashArray: '6 4' };
     }
-    // Phase 1 coastline overlay — true seaward-edge polylines, not
-    // recolored district borders. Edge counts cached once per GeoJSON
-    // load over every district nationwide: a coastal-district edge seen
-    // exactly once touches no neighbour → sea. Interstate borders count
-    // too (fullGeoData, not just the loaded state) so Pahang–Johor style
-    // land borders never highlight.
+    // Phase 1 coastline overlay — true OSM shoreline
+    // (`data/coastline.geojson`, vendored `natural=coastline` ways), not
+    // recolored district borders. The district polygons only ever carried
+    // an approximation of the shore (and neighbouring districts don't
+    // share exactly identical border nodes, so edge-derivation leaked
+    // inland — the ticks seen in testing). The overlay draws the warned
+    // stretch of the real waterline: shoreline points inside the warned
+    // coastal districts' bbox, expanded slightly so offshore wiggles and
+    // islands (e.g. Tioman) stay included. Lazy-loaded, test-gated.
     const COASTLINE_COLOR = '#0284c7';
+    const COASTLINE_URL = '/csr/weather/data/coastline.geojson';
+    const COASTLINE_BBOX_PAD = 0.12; // deg lat/lon margin around warned districts
     let coastalLayer = null;
-    let coastEdgeCount = null; // edgeKey → occurrences across fullGeoData
+    let coastlineData = null; // cached FeatureCollection of LineStrings
 
-    function roundedPtKey(lon, lat) { return lon.toFixed(5) + ',' + lat.toFixed(5); }
-    function edgeKey(a, b) { return a < b ? a + '|' + b : b + '|' + a; }
-
-    function cacheCoastEdges() {
-      coastEdgeCount = new Map();
-      if (!fullGeoData || !fullGeoData.features) return;
-      fullGeoData.features.forEach(f => {
-        const geom = f.geometry;
-        if (!geom) return;
-        const polys = geom.type === 'Polygon' ? [geom.coordinates] : (geom.type === 'MultiPolygon' ? geom.coordinates : []);
-        polys.forEach(poly => {
-          const outer = poly[0];
-          if (!outer) return;
-          for (let i = 0; i + 1 < outer.length; i++) {
-            const k = edgeKey(roundedPtKey(outer[i][0], outer[i][1]), roundedPtKey(outer[i + 1][0], outer[i + 1][1]));
-            coastEdgeCount.set(k, (coastEdgeCount.get(k) || 0) + 1);
-          }
-        });
-      });
+    async function ensureCoastline() {
+      if (coastlineData) return coastlineData;
+      const resp = await fetchWithTimeout(COASTLINE_URL, 15000);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      coastlineData = await resp.json();
+      return coastlineData;
     }
 
-    // Consecutive unshared-edge runs of one closed outer ring → paths.
-    // Rotates to start after a shared edge so a wrap-around coast stays
-    // one run; an all-coast ring (island, e.g. Tioman) returns the ring.
-    function ringCoastRuns(ring) {
-      const n = ring.length - 1; // closed ring: last === first
-      if (n < 1) return [];
-      const kept = [];
-      for (let i = 0; i < n; i++) {
-        const k = edgeKey(roundedPtKey(ring[i][0], ring[i][1]), roundedPtKey(ring[i + 1][0], ring[i + 1][1]));
-        kept.push((coastEdgeCount.get(k) || 0) === 1);
-      }
-      if (!kept.some(Boolean)) return [];
-      let start = 0;
-      for (let i = 0; i < n; i++) {
-        if (kept[i] && !kept[(i - 1 + n) % n]) { start = i; break; }
-      }
-      const runs = [];
-      let cur = null;
-      for (let s = 0; s < n; s++) {
-        const i = (start + s) % n;
-        if (kept[i]) {
-          if (!cur) cur = [ring[i]];
-          cur.push(ring[i + 1]);
-        } else if (cur) { runs.push(cur); cur = null; }
-      }
-      if (cur) runs.push(cur);
-      return runs.map(r => r.map(([lon, lat]) => [lat, lon]));
-    }
-
-    function coastalDistrictNames() {
+    // Warned coastal district names for the active view (single-state set
+    // or every nationwide-coastal state's cfg.coastal list).
+    function warnedCoastNames() {
+      const names = new Set();
       if (isNationwide) {
-        const names = new Set();
         if (nationwideCoastal && nationwideCoastal.size && STATE_CONFIG) {
           nationwideCoastal.forEach((v, code) => {
             const sc = Object.values(STATE_CONFIG).find(s => s.stateCode === code);
             ((sc && sc.coastal) || []).forEach(d => names.add(d));
           });
         }
-        return { names, weight: 3 };
+      } else if (warningCoastal && warningCoastal.districts) {
+        warningCoastal.districts.forEach(d => names.add(d));
       }
-      return { names: (warningCoastal && warningCoastal.districts) || new Set(), weight: 4 };
+      return names;
     }
 
     function renderCoastline() {
       if (coastalLayer) { map.removeLayer(coastalLayer); coastalLayer = null; }
-      if (TEST_COASTAL_PARAM === null || !fullGeoData || !coastEdgeCount) return;
-      const { names, weight } = coastalDistrictNames();
+      if (TEST_COASTAL_PARAM === null || !fullGeoData) return;
+      const names = warnedCoastNames();
       if (!names.size) return;
-      const lines = [];
+      // Bbox of the warned districts' own polygons, padded — the real
+      // shoreline sits slightly offshore of the district edges.
+      let x0 = 999, y0 = 999, x1 = -999, y1 = -999, found = false;
       fullGeoData.features.forEach(f => {
         if (!names.has(f.properties.name)) return;
         const geom = f.geometry;
         if (!geom) return;
         const polys = geom.type === 'Polygon' ? [geom.coordinates] : (geom.type === 'MultiPolygon' ? geom.coordinates : []);
         polys.forEach(poly => {
-          ringCoastRuns(poly[0] || []).forEach(path => { if (path.length > 1) lines.push(path); });
+          (poly[0] || []).forEach(([lon, lat]) => {
+            found = true;
+            if (lon < x0) x0 = lon; if (lon > x1) x1 = lon;
+            if (lat < y0) y0 = lat; if (lat > y1) y1 = lat;
+          });
         });
       });
-      if (!lines.length) return;
-      coastalLayer = L.layerGroup(lines.map(path =>
-        L.polyline(path, { color: COASTLINE_COLOR, weight, opacity: 1, interactive: false })));
-      coastalLayer.addTo(map);
+      if (!found) return;
+      x0 -= COASTLINE_BBOX_PAD; x1 += COASTLINE_BBOX_PAD;
+      y0 -= COASTLINE_BBOX_PAD; y1 += COASTLINE_BBOX_PAD;
+      const weight = isNationwide ? 3 : 4;
+      ensureCoastline().then(fc => {
+        const lines = [];
+        (fc.features || []).forEach(feat => {
+          if (!feat.geometry || feat.geometry.type !== 'LineString') return;
+          let cur = null;
+          feat.geometry.coordinates.forEach(([lon, lat]) => {
+            if (lon >= x0 && lon <= x1 && lat >= y0 && lat <= y1) {
+              if (!cur) cur = [];
+              cur.push([lat, lon]);
+            } else if (cur) {
+              if (cur.length > 1) lines.push(cur);
+              cur = null;
+            }
+          });
+          if (cur && cur.length > 1) lines.push(cur);
+        });
+        if (!lines.length) return;
+        coastalLayer = L.layerGroup(lines.map(path =>
+          L.polyline(path, { color: COASTLINE_COLOR, weight, opacity: 1, interactive: false })));
+        coastalLayer.addTo(map);
+      }).catch(err => console.warn('[weather] coastline overlay failed:', err.message));
     }
     const MARINE_CATEGORY_LABEL = { first: 'Kategori Pertama', second: 'Kategori Kedua', third: 'Kategori Ketiga', searise: 'Kenaikan Paras Laut', thunderstorm: 'Ribut Petir di Perairan' };
     // Phase 1 coastal compute — single-state: highest marine tier across
@@ -1589,7 +1582,6 @@
         })
         .then(data => {
           fullGeoData = data;
-          cacheCoastEdges();
           geojsonLayer = buildDistrictLayer(isNationwide ? data.features : data.features.filter(f => f.properties.state === cfg.stateCode)).addTo(map);
 
           if (isNationwide) {
