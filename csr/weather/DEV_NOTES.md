@@ -784,4 +784,39 @@ Research done: `BlueNetCat/grib22json` decodes GRIB2 purely in JS (browser-side,
 
 - Export overlay shift (Session 15 item) — paused per user, not revisited.
 - Sabah `divisions`-table expansion (Session 14 item) — still parked for lack of same-time text+map evidence.
-- **Coastline (marine) warnings** (parked 2026-11-10, next-session discussion) — highlight the coastline boundary for MET strong-winds/rough-seas bulletins. Phased plan: Phase 1 = state-level "waters of X" → coastal district edges (derivable from existing GeoJSON); Phase 2 = named offshore blocks like Condore (needs a sea-zone source + live bulletin survey, schematic zones not real boundaries). Open UI question: third warning card vs drawer/legend indicator. Render must be coastline-only (glowing outline, zero land fill) so it never reads as a district warning.
+- Spike B real-GFS wind (Session 16) — still parked.
+- ~~Coastline warnings~~ — BUILT this session (Session 17 below), Phase 1 live. Phase 2 (named offshore blocks) still parked.
+
+---
+
+## Session 17 — no-auto-zoom reversal, mobile peninsula view, coastal Phase 1 end-to-end (2026-11-10 → 11-11)
+
+### The vibe
+
+Fast iterative loop with the user driving every step via screenshots — "why is X highlighted" → diagnose → fix → next. Two genuine mind-changes mid-session (coastal test-only → live; district zoom → no zoom at all) — both handled as plain reversals, no friction. Plan mode was on for two stretches; user toggled it off with "go" each time. Standing rhythm held throughout: diagnose, report, wait for go.
+
+### Shipped (all on origin/main, tip `fe7ccf4`)
+
+1. **District auto-zoom removed** (`5a87a22`): user didn't want `?district=` preselect (or any pick) reframing the map. `highlightByName()` now updates halo + forecast + sheet text only, mobile still reveals the sheet. **Session 16's `focusFrameOptions()` + `districtNeedsFullView()` (~70 lines) deleted as dead code** — don't go looking for them.
+2. **Mobile Malaysia = peninsula only** (`baa6f06`): `malaysia.mobile` → zoom 6.5 / center [4.15, 102.3] (was 4.80 / mid-South-China-Sea). Desktop 6.4 untouched. Math: ~390px phone width at z6.5 shows ~6.1° lon — peninsula fills, Borneo out. Nudge-able via `?debugzoom=1`.
+3. **Coastal Phase 1 full arc** — parse → render → test → live:
+   - `parseMarineForState()` (weather-core.js): SECTION A only, per-state `waters of` match, category → tier (third=bahaya, second=buruk, first/searise=waspada, thunder-over-waters=amaran). SECTION B offshore blocks ignored (Phase 2). `coastal:[]` per state in states.json (KL/Putrajaya empty).
+   - Render evolved 3× in one session: (a) recolored district borders → (b) derived seaward edges from district polygons (`a0eb4ea`, leaked inland — neighbours don't share exactly identical nodes) → (c) true shoreline overlay (`2a28eeb`): Natural Earth 10m clipped to Malaysia, `data/coastline.geojson`, 74 features / 2817 pts / **60KB**, lazy-loaded.
+   - Tails fix (`e8e79d1`): padded-bbox filter leaked into neighbour states' shores → 5km point-to-district-edge distance filter (verified: 50 pts kept, 0.02° north overhang, zero south leak).
+   - Category colours (`0954c78`), halo stack (`4bc2414`, 7px core + 23px 25% underlay), slow pulse (`a4b0cfc`, `654c787`: halo 0.15↔0.5 + core 0.7↔1, same 2.6s clock, reduced-motion safe, `style.css?v=4`).
+   - `?testcoastalwarning=` (first/second/third/searise/thunder, bare=first; multi `Kelantan:first;Terengganu:third` in `4053367`, verified all five + bare + no-leak via node harness).
+   - Test-only → LIVE (`b6127d5`, user's call after seeing it good). Single-state shows by default; **nationwide hides behind a legend checkbox toggle** (`fe7ccf4`, default off, resets on state switch, checkbox lives in legend so drawer inherits it).
+4. **Stale-cache crash fix** (`61170de`): production ran cached `weather-core.js` without `parseCoastalTestGroups` → ReferenceError killed nationwide refresh (thunder+coastal+continuous all blank). Script tag now `weather-core.js?v=1` — **same bump-on-change rule as style.css `?v=` from now on**. Also added missing `larut matang → Larut Dan Matang` alias (console: "Unrecognized district name").
+5. `ERR_BLOCKED_BY_CLIENT` in user's console = their own adblocker, not page code. Ignore.
+
+### Bugs + lessons
+
+- Shared JS needs cache-busters exactly like CSS. Never ship a logic change to `weather-core.js` without bumping its `?v=`. (Phones/proxies pinned the old file; the crash it caused looked like a data outage.)
+- District polygons are not a coastline source, twice over: shared borders aren't node-identical (inland ticks), and their seaward edges sit visibly inland of the real shore. Always reach for a true shoreline dataset.
+- Rectangle/bbox clipping always leaks on diagonal coasts — distance-to-geometry is the correct filter shape.
+- `coastline2.geojson` (1.2MB OSM staging) sits **untracked in working tree — never commit it**. Compare/delete locally only; git history keeps forever what it catches.
+
+### Still open
+
+- Export overlay shift, Sabah divisions table, Spike B GFS wind, coastline Phase 2 (offshore blocks) — all parked, unchanged.
+- Pulse animation never verified visually (harness tabs pause CSS/rAF clocks) — needs one on-phone eyeball.
