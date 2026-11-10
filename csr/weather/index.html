@@ -1167,7 +1167,10 @@
     // islands (e.g. Tioman) stay included. Lazy-loaded, test-gated.
     const COASTLINE_COLOR = '#0284c7';
     const COASTLINE_URL = '/csr/weather/data/coastline.geojson';
-    const COASTLINE_BBOX_PAD = 0.12; // deg lat/lon margin around warned districts
+    // Max shore-to-district gap: the district edges only approximate the
+    // waterline, so allow a few km — small enough that the highlight stops
+    // at the state border instead of trailing into the neighbour's shore.
+    const COASTLINE_MAX_KM = 5;
     let coastalLayer = null;
     let coastlineData = null; // cached FeatureCollection of LineStrings
 
@@ -1196,30 +1199,55 @@
       return names;
     }
 
-    function renderCoastline() {
-      if (coastalLayer) { map.removeLayer(coastalLayer); coastalLayer = null; }
-      if (TEST_COASTAL_PARAM === null || !fullGeoData) return;
-      const names = warnedCoastNames();
-      if (!names.size) return;
-      // Bbox of the warned districts' own polygons, padded — the real
-      // shoreline sits slightly offshore of the district edges.
-      let x0 = 999, y0 = 999, x1 = -999, y1 = -999, found = false;
+    // Warned districts' outer-ring segments (lon/lat degrees) — the
+    // shoreline keeps only points near these, so the highlight follows
+    // the warned districts exactly instead of filling a padded rectangle
+    // whose corners reach into the neighbour states' shores.
+    function warnedCoastSegments(names) {
+      const segs = [];
       fullGeoData.features.forEach(f => {
         if (!names.has(f.properties.name)) return;
         const geom = f.geometry;
         if (!geom) return;
         const polys = geom.type === 'Polygon' ? [geom.coordinates] : (geom.type === 'MultiPolygon' ? geom.coordinates : []);
         polys.forEach(poly => {
-          (poly[0] || []).forEach(([lon, lat]) => {
-            found = true;
-            if (lon < x0) x0 = lon; if (lon > x1) x1 = lon;
-            if (lat < y0) y0 = lat; if (lat > y1) y1 = lat;
-          });
+          const outer = poly[0] || [];
+          for (let i = 0; i + 1 < outer.length; i++) {
+            segs.push([outer[i][0], outer[i][1], outer[i + 1][0], outer[i + 1][1]]);
+          }
         });
       });
-      if (!found) return;
-      x0 -= COASTLINE_BBOX_PAD; x1 += COASTLINE_BBOX_PAD;
-      y0 -= COASTLINE_BBOX_PAD; y1 += COASTLINE_BBOX_PAD;
+      return segs;
+    }
+
+    // Point-to-segment distance in km (equirectangular; cos(lat) ≈ 1
+    // across Malaysia's 0–8° band, so plain degrees × 111.2 is plenty).
+    function segDistKm(lon, lat, ax, ay, bx, by) {
+      const dx = bx - ax, dy = by - ay;
+      const L2 = dx * dx + dy * dy;
+      let t = L2 === 0 ? 0 : ((lon - ax) * dx + (lat - ay) * dy) / L2;
+      t = Math.max(0, Math.min(1, t));
+      const cx = ax + t * dx - lon, cy = ay + t * dy - lat;
+      return Math.sqrt(cx * cx + cy * cy) * 111.2;
+    }
+
+    function renderCoastline() {
+      if (coastalLayer) { map.removeLayer(coastalLayer); coastalLayer = null; }
+      if (TEST_COASTAL_PARAM === null || !fullGeoData) return;
+      const names = warnedCoastNames();
+      if (!names.size) return;
+      const segs = warnedCoastSegments(names);
+      if (!segs.length) return;
+      // Segments' own bbox first — cheap reject before the per-point scan.
+      let x0 = 999, y0 = 999, x1 = -999, y1 = -999;
+      segs.forEach(g => {
+        if (g[0] < x0) x0 = g[0]; if (g[2] < x0) x0 = g[2];
+        if (g[0] > x1) x1 = g[0]; if (g[2] > x1) x1 = g[2];
+        if (g[1] < y0) y0 = g[1]; if (g[3] < y0) y0 = g[3];
+        if (g[1] > y1) y1 = g[1]; if (g[3] > y1) y1 = g[3];
+      });
+      const m = COASTLINE_MAX_KM / 111.2;
+      x0 -= m; x1 += m; y0 -= m; y1 += m;
       const weight = isNationwide ? 3 : 4;
       ensureCoastline().then(fc => {
         const lines = [];
@@ -1227,7 +1255,14 @@
           if (!feat.geometry || feat.geometry.type !== 'LineString') return;
           let cur = null;
           feat.geometry.coordinates.forEach(([lon, lat]) => {
+            let near = false;
             if (lon >= x0 && lon <= x1 && lat >= y0 && lat <= y1) {
+              for (let s = 0; s < segs.length; s++) {
+                const g = segs[s];
+                if (segDistKm(lon, lat, g[0], g[1], g[2], g[3]) <= COASTLINE_MAX_KM) { near = true; break; }
+              }
+            }
+            if (near) {
               if (!cur) cur = [];
               cur.push([lat, lon]);
             } else if (cur) {
