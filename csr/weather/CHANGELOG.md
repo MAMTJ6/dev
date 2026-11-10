@@ -12,7 +12,24 @@ session notes in `DEV_NOTES.md`. View this file in the browser via
 
 ## [Unreleased]
 
+### Added (redesign branch `redesign/weather-titisan-mobile`, mobile <768px only, desktop untouched)
+
+- Titisan-style mobile shell: floating toolbar, status card with tier pill,
+  bottom nav (Peta / Amaran / Tetapan / Info), Tetapan layers sheet
+  (Perairan, Angin, Tema gelap), Info bottom sheet, Amaran floating popup
+  hosting the real warning/forecast cards.
+- Merged GPS + manual location chooser: geolocation matches the district
+  in-page (state switches when needed, no zoom) with a pulsating dot;
+  `?testgps=lat,lng` demo hook.
+- "Hujan model" card (Anggaran): Open-Meteo 24h rain, hourly bars, 3-day
+  rows; GloFAS river percentile via grid-snapped cell; wind compass block;
+  tide highs/lows derived from the marine sea-level curve. District-only,
+  30-min cache, degrades to one muted line, never blocks MET cards.
+
 ### Fixed
+
+- Mobile backdrop shipped without `hidden` (permanent dim layer).
+- Mobile bottom sheet caused double scroll (inner scrollbox neutralised).
 
 - Statewide wash missed for bulletins phrased "states of X" (plural English):
   Terengganu now highlights correctly. Parser checks both `text_en` and

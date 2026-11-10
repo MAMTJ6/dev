@@ -820,3 +820,36 @@ Fast iterative loop with the user driving every step via screenshots — "why is
 
 - Export overlay shift, Sabah divisions table, Spike B GFS wind, coastline Phase 2 (offshore blocks) — all parked, unchanged.
 - Pulse animation never verified visually (harness tabs pause CSS/rAF clocks) — needs one on-phone eyeball.
+
+---
+
+## Session 18 — mobile-first titisan redesign + Open-Meteo/GloFAS model arc (2026-11-10 → 11-11, ALL UNCOMMITTED)
+
+### Headspace
+
+Screenshot-driven phone loop, fastest session yet: user sent a titisan.app screen, then one phone screenshot per micro-ask ("why Buruk?", "text too big?", "merge these two buttons?"). Plan mode went on twice (redesign spec, double-scroll/toggle spec); "go" both times meant *build that slice only*. Standing instruction for the whole arc: **edit + verify, never push** — branch `redesign/weather-titisan-mobile` holds one pushed shell commit (`06aabf0`); everything after is uncommitted working tree. Diagnose-first held: the "why Buruk?" turn was answered with a live MET fetch (real SEKSYEN A/B bulletin), zero code changed. Malay-first UI kept throughout; English code/comments.
+
+### Shipped (all verified, NONE pushed — holding on user's word)
+
+1. **Mobile shell** (titisan language, <768px only, desktop pixel-identical): floating toolbar → single Lokasi pill; status card (name + tier pill + warned count, tap opens popup); bottom nav Peta/Amaran/Tetapan/Info; Tetapan layers sheet (Perairan + Angin + Tema gelap); Info bottom sheet (legend key + sources); Amaran floating popup hosting the REAL thunder/rain/forecast/nationwide nodes (single-copy move, desktop restores). Rise+fade on all three surfaces (display:none can't transition — rendered-off-screen + .open/.show classes instead). `style.css?v=5`.
+2. **Screenshot fixes**: backdrop missing `hidden` (permanent dim layer — the "grey overlay gone after tap"); brand-bar hidden on mobile (popover re-homed); popup replaces bottom sheet (single scroll container — inner `max-h-[40vh]` neutralised); popup type scaled to popup proportions; Amaran/Tetapan tabs toggle closed; sheets full-bleed to top/bottom above nav/toolbar; forecast card moved to popup top.
+3. **GPS chooser**: one Lokasi pill → sheet with "Guna lokasi saya" + manual selects. `matchDistrictToState()` (ray-cast over cached GeoJSON, 0.25° centroid fallback) verified live: Temerloh→PHG, JB→JHR, KL→KUL, sea→null. Success = switchState when needed + halo/forecast, NO zoom, pulsating dot (2.6s clock, reduced-motion safe). `?testgps=lat,lng` hook for hardware-free demo.
+4. **Model card (district-only, 30-min TTL, all labelled Anggaran)**: Open-Meteo rain (24h total, next-24h bars, 3-day rows — shape verified live); GloFAS river via grid-snap (centroid cell is riverless — multi-location lattice, first live cell wins; verified 5.28/103.14, pct vs past-90d by KL calendar day); wind compass block (16-point Malay labels, blow-direction arrows, hourly strip); tide from marine sea-level extrema (API has no high/low fields — derived; verified low→high→low sequence). All three race via `allSettled`; any failure degrades to a muted line, never blocks MET cards.
+5. **Not-a-bug log**: Terengganu "Buruk 8" = live SEKSYEN A (7 districts) + SEKSYEN B Hulu Terengganu. Scope plumbing double-checked: marine bulletins resolve `scope:'marine'` (excluded from status math), `scope:'coastal'` feeds waterline only.
+
+### Bugs + lessons (session rules for next-you)
+
+- Overlays must init hidden AND class-driven. A backdrop without `hidden` is a permanent invisible tap-eater — symptom mimics "map dead until first tap".
+- `display:none` transitions nothing. Pattern from now: rendered + `transform/opacity/visibility` + `.open`.
+- District centroid ≠ river cell (GloFAS 0.1°). Always snap-then-verify; never trust one coordinate pair against a gridded model.
+- Marine API has no tide fields — extrema-from-curve + KL-calendar-day alignment. Verify array shapes live before building (flood `past_days=92` returns 95, daily[0] = yesterday).
+- PowerShell has no `head/tail/wc/python3`; `&` breaks inline `node -e`. Temp-dir scripts only.
+- The edit tool chokes on lines with odd bytes (em-dash line) — split edits around them.
+- `coastline2.geojson` still untracked — never commit it.
+
+### Still open
+
+- **Push the branch** — everything above is uncommitted; user says when.
+- **JPS station spike** (research: likely proxy + scrape, timebox or park).
+- On-phone eyeballs: SVG compass dial, tide curve, wind strip, popup heights, pulse animation (still never visually verified).
+- Older parked items unchanged. `?v` rule held: CSS at v5 (bump on every change).
