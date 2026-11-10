@@ -626,7 +626,8 @@ html.light .forecast-slot .slot-icon .wicon {
 #m-status-card,
 #m-bottomnav,
 #m-layers-backdrop,
-#m-layers-sheet {
+#m-layers-sheet,
+#m-warn-popup {
     display: none;
 }
 
@@ -750,16 +751,25 @@ html.light .forecast-slot .slot-icon .wicon {
     #m-bottomnav button.active { background: #1c1a16; color: #fff; }
     html.dark #m-bottomnav button.active { background: #f2f4f8; color: #1c1a16; }
 
-    /* Layers sheet + backdrop. */
+    /* Layers sheet + backdrop. Both stay rendered and animate like the
+       Info sheet (transform/opacity) — display:none can't transition. */
     #m-layers-backdrop {
         position: fixed;
         inset: 0;
         z-index: 1060;
         background: rgba(0, 0, 0, 0.4);
+        display: block; /* overrides UA [hidden] — visibility is class-driven */
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.25s ease, visibility 0.25s;
     }
 
-    #m-layers-backdrop[hidden] { display: none; }
-    #m-layers-backdrop:not([hidden]) { display: block; }
+    #m-layers-backdrop.show {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
 
     #m-layers-sheet {
         position: fixed;
@@ -768,15 +778,18 @@ html.light .forecast-slot .slot-icon .wicon {
         bottom: 0;
         z-index: 1070;
         display: block;
-        max-height: 82vh;
+        max-height: 92vh;
+        max-height: 92dvh;
         overflow-y: auto;
         padding: 10px 20px calc(20px + env(safe-area-inset-bottom, 0));
         border-radius: 28px 28px 0 0;
         background: #fffdf9;
         box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.22);
+        transform: translateY(105%);
+        transition: transform 0.25s ease;
     }
 
-    #m-layers-sheet[hidden] { display: none; }
+    #m-layers-sheet.open { transform: none; }
     html.dark #m-layers-sheet { background: #1b1c20; color: #f2f4f8; }
 
     #m-layers-sheet .sheet-grabber {
@@ -821,6 +834,482 @@ html.light .forecast-slot .slot-icon .wicon {
     #m-layers-done { width: 100%; padding: 15px; border: none; border-radius: 18px; background: #1c1a16; color: #fff; font-size: 1.05rem; font-weight: 700; }
     html.dark #m-layers-done { background: #f2f4f8; color: #1c1a16; }
 }
+
+/* Mobile Info sheet — same bottom-sheet language as the Tetapan sheet.
+   Later in the file than the old right-slide drawer rules, so these win. */
+@media (max-width: 767px) {
+    #mobile-drawer {
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: auto;
+        max-height: 92vh;
+        max-height: 92dvh;
+        padding: 10px 20px calc(20px + env(safe-area-inset-bottom, 0));
+        border-radius: 28px 28px 0 0;
+        border: 1px solid var(--t-line);
+        background: #fffdf9;
+        box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.22);
+        transform: translateY(105%);
+        overflow-y: auto;
+        color: var(--t-ink);
+    }
+
+    html.dark #mobile-drawer {
+        background: #1b1c20;
+        color: #f2f4f8;
+    }
+
+    html.drawer-open #mobile-drawer {
+        transform: none;
+    }
+
+    #mobile-drawer .sheet-grabber {
+        display: block;
+        width: 44px;
+        height: 5px;
+        margin: 2px auto 10px;
+        border-radius: 999px;
+        background: #ddd8cf;
+    }
+
+    #mobile-drawer .sheet-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    #mobile-drawer .sheet-kicker {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: var(--t-muted);
+    }
+
+    #drawer-close {
+        width: 40px;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        border: none;
+        background: #f1ede4;
+        color: #1c1a16;
+        margin-left: auto;
+    }
+
+    #mobile-drawer h2 {
+        font-family: 'Bricolage Grotesque', Archivo, sans-serif;
+        font-size: 1.6rem;
+        font-weight: 800;
+        margin: 8px 0 4px;
+    }
+
+    #mobile-drawer .sheet-lede {
+        color: var(--t-muted);
+        font-size: 0.9rem;
+        margin: 0 0 14px;
+    }
+
+    #mobile-drawer .drawer-sources {
+        text-align: center;
+        color: var(--t-muted);
+        font-size: 0.8rem;
+        line-height: 1.6;
+    }
+
+    #drawer-done {
+        width: 100%;
+        padding: 15px;
+        border: none;
+        border-radius: 18px;
+        background: #1c1a16;
+        color: #fff;
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    html.dark #drawer-done { background: #f2f4f8; color: #1c1a16; }
+}
+
+/* Mobile location sheet — same bottom-sheet language as Tetapan/Info. */
+@media (max-width: 767px) {
+    /* The desktop popover shell is empty on mobile (its wraps live in
+       the sheet below) — keep it out of the way entirely. */
+    #topleft-stack #location-popover {
+        display: none;
+    }
+
+    #m-location-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 1060;
+        background: rgba(0, 0, 0, 0.4);
+        display: block;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.25s ease, visibility 0.25s;
+    }
+
+    #m-location-backdrop.show {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    #m-location-sheet {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1070;
+        display: block;
+        max-height: 92vh;
+        max-height: 92dvh;
+        overflow-y: auto;
+        padding: 10px 20px calc(20px + env(safe-area-inset-bottom, 0));
+        border-radius: 28px 28px 0 0;
+        border: 1px solid var(--t-line);
+        background: #fffdf9;
+        box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.22);
+        color: var(--t-ink);
+        transform: translateY(105%);
+        transition: transform 0.25s ease;
+    }
+
+    #m-location-sheet.open { transform: none; }
+    html.dark #m-location-sheet { background: #1b1c20; color: #f2f4f8; }
+
+    #m-location-sheet .sheet-grabber {
+        display: block;
+        width: 44px;
+        height: 5px;
+        margin: 2px auto 10px;
+        border-radius: 999px;
+        background: #ddd8cf;
+    }
+
+    #m-location-sheet .sheet-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    #m-location-sheet .sheet-kicker {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: var(--t-muted);
+    }
+
+    #m-location-close {
+        width: 40px;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        border: none;
+        background: #f1ede4;
+        color: #1c1a16;
+    }
+
+    #m-location-sheet h2 {
+        font-family: 'Bricolage Grotesque', Archivo, sans-serif;
+        font-size: 1.6rem;
+        font-weight: 800;
+        margin: 8px 0 4px;
+    }
+
+    #m-location-sheet .sheet-lede {
+        color: var(--t-muted);
+        font-size: 0.9rem;
+        margin: 0 0 14px;
+    }
+
+    #m-gps-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 15px;
+        border: none;
+        border-radius: 18px;
+        background: #1c1a16;
+        color: #fff;
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    html.dark #m-gps-btn { background: #f2f4f8; color: #1c1a16; }
+    #m-gps-btn:disabled { opacity: 0.6; }
+
+    #m-gps-status {
+        text-align: center;
+        color: var(--t-muted);
+        font-size: 0.82rem;
+        margin: 10px 4px 0;
+    }
+
+    #m-location-sheet .sheet-or {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--t-muted);
+        font-size: 0.8rem;
+        font-weight: 700;
+        margin: 16px 0 12px;
+    }
+
+    #m-location-sheet .sheet-or::before,
+    #m-location-sheet .sheet-or::after {
+        content: "";
+        flex: 1;
+        border-top: 1px solid var(--t-line);
+    }
+
+    #m-loc-state-slot { margin-bottom: 12px; }
+
+    #m-location-done {
+        width: 100%;
+        padding: 15px;
+        margin-top: 14px;
+        border: 1px solid var(--t-line);
+        border-radius: 18px;
+        background: #f5f1e8;
+        color: #1c1a16;
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    html.dark #m-location-done { background: #26272b; color: #f2f4f8; }
+}
+
+/* GPS dot — same 2.6s breath as the coastal waterline, reduced-motion safe. */
+@keyframes gps-dot-pulse {
+    0%, 100% { fill-opacity: 1; }
+    50% { fill-opacity: 0.5; }
+}
+
+.gps-dot {
+    animation: gps-dot-pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes gps-halo-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.9; }
+}
+
+.gps-halo {
+    animation: gps-halo-pulse 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gps-dot, .gps-halo { animation: none; }
+}
+
+/* Model rain bars — theme-independent sizing, works in the side column
+   and the mobile popup alike. Heights are inline per-bar. */
+.model-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 44px;
+    margin: 8px 0 4px;
+}
+
+.model-bars i {
+    flex: 1;
+    min-height: 2px;
+    background: #e0a800;
+    border-radius: 2px;
+    opacity: 0.85;
+}
+
+/* Model wind strip — 8 hourly cells, arrow rotated to blow direction. */
+.model-wind-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.model-wind-head strong {
+    font-family: 'Bricolage Grotesque', Archivo, sans-serif;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #1c1a16;
+}
+
+html.dark .model-wind-head strong { color: #f2f4f8; }
+
+.model-wind-pill {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.28rem 0.7rem;
+    border-radius: 999px;
+    background: #eef1e6;
+    color: #3c5a3c;
+}
+
+.model-wind-pill[data-s="Sederhana"] { background: #fbebb8; color: #4a3500; }
+.model-wind-pill[data-s="Kuat"] { background: #f9d7ba; color: #4a1f02; }
+
+.model-wind-main {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.model-compass {
+    width: 96px;
+    height: 96px;
+    flex-shrink: 0;
+}
+
+.model-compass circle {
+    fill: #f5f1e8;
+}
+
+html.dark .model-compass circle { fill: #26272b; }
+
+.model-compass g line {
+    stroke: #c9c2b4;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+.model-compass > g:last-child line {
+    stroke: #1c1a16;
+    stroke-width: 3;
+}
+
+.model-compass polygon {
+    fill: #1c1a16;
+}
+
+.model-compass > g:last-child circle {
+    fill: #1c1a16;
+}
+
+html.dark .model-compass > g:last-child line { stroke: #f2f4f8; }
+html.dark .model-compass polygon,
+html.dark .model-compass > g:last-child circle { fill: #f2f4f8; }
+
+.model-wind-big {
+    font-family: 'Bricolage Grotesque', Archivo, sans-serif;
+    font-weight: 800;
+    font-size: 2.2rem;
+    line-height: 1;
+    color: #1c1a16;
+}
+
+html.dark .model-wind-big { color: #f2f4f8; }
+
+.model-wind-big small {
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.model-wind-strip {
+    display: flex;
+    gap: 2px;
+    margin: 6px 0 2px;
+}
+
+.model-wind-cell {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+}
+
+.model-wind-cell small {
+    font-size: 0.68rem;
+    color: #8a8478;
+    white-space: nowrap;
+}
+
+.model-wind-cell i {
+    font-style: normal;
+    font-size: 0.85rem;
+    line-height: 1;
+    display: inline-block;
+}
+
+.model-wind-cell b {
+    font-size: 0.78rem;
+    color: #1c1a16;
+}
+
+html.dark .model-wind-cell { color: #a6a29a; }
+html.dark .model-wind-cell b { color: #f2f4f8; }
+
+/* Model tide block — header, smooth curve, event rows. */
+.model-tide-title {
+    font-family: 'Bricolage Grotesque', Archivo, sans-serif;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #1c1a16;
+}
+
+html.dark .model-tide-title { color: #f2f4f8; }
+
+.model-tide-kicker {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #8a8478;
+    text-transform: uppercase;
+}
+
+.model-tide-kicker span {
+    font-family: 'Bricolage Grotesque', Archivo, sans-serif;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: normal;
+    text-transform: none;
+    color: #1c1a16;
+}
+
+html.dark .model-tide-kicker span { color: #f2f4f8; }
+
+.model-tide-curve {
+    width: 100%;
+    height: 84px;
+    margin: 6px 0 4px;
+}
+
+.model-tide-curve path:first-child {
+    fill: rgba(28, 26, 22, 0.06);
+}
+
+.model-tide-curve path:nth-child(2) {
+    fill: none;
+    stroke: #1c1a16;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+}
+
+.model-tide-curve circle {
+    fill: #fff;
+    stroke: #1c1a16;
+    stroke-width: 2.5;
+}
+
+.model-tide-curve circle.now {
+    fill: #1c1a16;
+    stroke: #fff;
+}
+
+html.dark .model-tide-curve path:nth-child(2) { stroke: #f2f4f8; }
+html.dark .model-tide-curve circle { stroke: #f2f4f8; }
+html.dark .model-tide-curve circle.now { fill: #f2f4f8; stroke: #1c1a16; }
 /* Nationwide warning rows (renderNationwidePanel() in index.html) —
    "sehingga <time>" sits beside the body text via ml-auto by default,
    which reads as floating off to the side of the paragraph rather than
@@ -834,4 +1323,224 @@ html.light .forecast-slot .slot-icon .wicon {
 
 .nationwide-warn-row > span {
     margin-left: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Mobile-first redesign round 2 — feedback pass.                      */
+/* 1. The old top brand bar is gone on mobile (status card + toolbar + */
+/*    bottom nav cover its jobs; search popover re-homes into the      */
+/*    toolbar stack). 2. The bottom-sheet expand is gone: warnings +   */
+/*    forecast live in a floating popup card (Amaran nav / status tap). */
+/* ------------------------------------------------------------------ */
+@media (max-width: 767px) {
+    #brand-bar {
+        display: none;
+    }
+
+    /* No more peek/expand sheet — popup replaces it. */
+    #sheet-handle {
+        display: none !important;
+    }
+
+    #side-column,
+    #nationwide-summary-bar {
+        display: none;
+    }
+
+    /* Test/banner rows sat below the old bar; the toolbar + status card
+       stack is ~150px tall, so drop them beneath it. */
+    #test-mode-banner {
+        top: 158px;
+    }
+
+    #state-error-banner {
+        top: 202px;
+    }
+
+    /* Theme now lives in the Tetapan sheet — the drawer's old theme row
+       stays empty, so hide it. */
+    #drawer-theme-slot {
+        display: none;
+    }
+
+    /* Search popover becomes a full-width dropdown under the stack. */
+    #topleft-stack #location-popover {
+        position: absolute;
+        left: 0.75rem;
+        right: 0.75rem;
+        width: auto;
+        z-index: 1100;
+    }
+
+    /* Warning popup: full-bleed bottom card above everything (nav +
+       toolbar slide behind it). Grows with content up to near the top. */
+    #m-warn-popup {
+        display: block;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1075;
+        max-height: 88vh;
+        max-height: calc(100dvh - 80px);
+        overflow-y: auto;
+        padding: 14px 18px calc(16px + env(safe-area-inset-bottom, 0));
+        border-radius: 28px 28px 0 0;
+        border: 1px solid var(--t-line);
+        background: rgba(255, 253, 249, 0.98);
+        box-shadow: var(--t-shadow);
+        color: var(--t-ink);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(24px);
+        transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s;
+    }
+
+    #m-warn-popup.open {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: none;
+    }
+
+    html.dark #m-warn-popup {
+        background: rgba(24, 24, 27, 0.98);
+        color: #f2f4f8;
+    }
+
+    #m-warn-popup .sheet-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    #m-warn-popup .sheet-kicker {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: var(--t-muted);
+    }
+
+    #m-warn-close {
+        width: 40px;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        border: none;
+        background: #f1ede4;
+        color: #1c1a16;
+    }
+
+    #m-warn-popup h2 {
+        font-family: 'Bricolage Grotesque', Archivo, sans-serif;
+        font-size: 1.35rem;
+        font-weight: 800;
+        line-height: 1.1;
+        margin: 6px 0 8px;
+    }
+
+    #m-warn-popup .warn-index {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 6px;
+    }
+
+    #m-warn-count {
+        font-family: 'Bricolage Grotesque', Archivo, sans-serif;
+        font-weight: 800;
+        font-size: 1.75rem;
+        line-height: 1;
+        color: #e0a800;
+    }
+
+    #m-warn-pill {
+        font-size: 0.78rem;
+        font-weight: 700;
+        padding: 0.28rem 0.7rem;
+        border-radius: var(--t-r-pill);
+        background: #eef1f6;
+        color: #5a564e;
+    }
+
+    #m-warn-pill[data-tier="waspada"] { background: #fbebb8; color: #4a3500; }
+    #m-warn-pill[data-tier="buruk"] { background: #f9d7ba; color: #4a1f02; }
+    #m-warn-pill[data-tier="bahaya"] { background: #f6cfcf; color: #4a0b0b; }
+    #m-warn-pill[data-tier="amaran"] { background: #dce8fb; color: #0e2a45; }
+    #m-warn-popup .warn-index:has(#m-warn-pill[data-tier="buruk"]) #m-warn-count { color: #e07a2f; }
+    #m-warn-popup .warn-index:has(#m-warn-pill[data-tier="bahaya"]) #m-warn-count { color: #d23b3b; }
+    #m-warn-popup .warn-index:has(#m-warn-pill[data-tier="amaran"]) #m-warn-count { color: #2f6fed; }
+
+    #m-warn-sub {
+        font-size: 0.78rem;
+        color: var(--t-muted);
+        margin: 0 0 10px;
+    }
+
+    /* Moved warning/forecast cards were designed for the 440px desktop
+       side column — scale their type down to popup proportions. The
+       ID scope outranks the Tailwind utilities, so no !important. */
+    #m-warn-slot h2 { font-size: 1.02rem; }
+    #m-warn-slot .text-4xl { font-size: 1.45rem; }
+    #m-warn-slot .text-2xl { font-size: 1.1rem; }
+    #m-warn-slot .text-base { font-size: 0.9rem; }
+    #m-warn-slot .text-sm { font-size: 0.76rem; }
+    #m-warn-slot span.rounded-full { padding: 0.15rem 0.6rem; }
+    #m-warn-slot .wicon { width: 38px; height: 38px; }
+    #m-warn-slot .forecast-slot .slot-icon { height: 2.5rem; }
+
+    #m-warn-slot:empty {
+        display: none;
+    }
+
+    /* Single scroll container: the popup scrolls, so the moved list must
+       not bring its own desktop scrollbox (that was the double scroll). */
+    #m-warn-slot #nationwide-summary-list {
+        max-height: none;
+        overflow-y: visible;
+    }
+
+    #m-warn-slot > section,
+    #m-warn-slot > ul {
+        margin-bottom: 12px;
+    }
+
+    #m-warn-slot > section:last-child,
+    #m-warn-slot > ul:last-child {
+        margin-bottom: 0;
+    }
+
+    #m-warn-popup .warn-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 14px;
+    }
+
+    #m-warn-map-btn {
+        flex: 1.2;
+        padding: 14px;
+        border: none;
+        border-radius: 16px;
+        background: #1c1a16;
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 700;
+    }
+
+    #m-warn-layers-btn {
+        flex: 1;
+        padding: 14px;
+        border: 1px solid var(--t-line);
+        border-radius: 16px;
+        background: #f5f1e8;
+        color: #1c1a16;
+        font-size: 1rem;
+        font-weight: 700;
+    }
+
+    html.dark #m-warn-map-btn { background: #f2f4f8; color: #1c1a16; }
+    html.dark #m-warn-layers-btn { background: #26272b; color: #f2f4f8; }
 }

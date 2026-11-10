@@ -147,12 +147,12 @@
 
       <div id="location-popover" hidden
         class="absolute top-full left-0 mt-2 w-72 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md p-4 shadow-xl z-[1200] flex flex-col gap-3">
-        <div>
+        <div id="loc-state-wrap">
           <label for="stateSelect" class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Negeri</label>
           <select id="stateSelect"
             class="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"></select>
         </div>
-        <div>
+        <div id="loc-district-wrap">
           <label for="districtSelect" class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Daerah</label>
           <select id="districtSelect"
             class="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100">
@@ -190,26 +190,9 @@
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M4 6h16a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zm0 5h16a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zm0 5h16a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2z"/></svg>
       </button>
     </header>
-    <!-- Mobile-first floating toolbar (titisan-style): quick map actions.
-         Desktop never shows this (see style.css). Buttons wire to existing
-         functions — no duplicated state. -->
-    <div id="m-toolbar" aria-label="Tindakan pantas peta">
-      <button id="m-layers-btn" type="button" aria-label="Lapisan peta">
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="17" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
-      </button>
-      <button id="m-search-btn" type="button" aria-label="Cari negeri / daerah">
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16.5 16.5 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </button>
-      <button id="m-locate-btn" type="button" aria-label="Kembali ke paparan negeri">
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </button>
-      <button id="m-info-btn" type="button" aria-label="Maklumat legenda">
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="8" r="1.2" fill="currentColor"/></svg>
-      </button>
-    </div>
     <!-- Mobile status card (titisan-style): state/district + tier pill +
-         warned count + time. Tap expands the bottom sheet. -->
-    <button id="m-status-card" type="button" aria-expanded="false" aria-controls="side-column">
+         warned count + time. Tap opens the warnings popup. -->
+    <button id="m-status-card" type="button" aria-expanded="false" aria-controls="m-warn-popup">
       <span id="m-status-text">
         <strong id="m-status-name">Malaysia</strong>
         <small id="m-status-sub">Pilih negeri · —</small>
@@ -220,32 +203,43 @@
       </span>
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="m9 5 7 7-7 7"/></svg>
     </button>
-  </div>
-
-  <!-- Mobile-only drawer (<768px): settings + legend colour key behind a
-       hamburger — desktop never shows this (see style.css). #theme-toggle,
-       #export-btn and #map-legend NODES move here below 768px via
-       layoutMobileNodes(), so there is exactly one copy of each, never a
-       synced duplicate that can drift. -->
-  <div id="drawer-backdrop"></div>
-  <aside id="mobile-drawer" aria-label="Menu">
-    <div class="flex items-center gap-2 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 shrink-0">
-      <span class="font-display font-bold text-sm text-zinc-900 dark:text-zinc-100">Menu</span>
-      <button id="drawer-close" type="button" aria-label="Tutup menu"
-        class="ml-auto inline-flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors shrink-0">
-        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg>
+    <!-- Mobile-first floating toolbar (titisan-style): quick map actions
+         below the status card. Desktop never shows this (see style.css).
+         Buttons wire to existing functions — no duplicated state. -->
+    <div id="m-toolbar" aria-label="Tindakan pantas peta">
+      <button id="m-location-btn" type="button" aria-label="Lokasi saya">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
       </button>
     </div>
-    <div class="flex flex-col gap-4 px-4 py-4 overflow-y-auto">
+  </div>
+
+  <!-- Mobile-only drawer (<768px): settings + legend colour key behind the
+       Info tab — desktop never shows this (see style.css). #export-btn and
+       #map-legend NODES move here below 768px via layoutMobileNodes(), so
+       there is exactly one copy of each, never a synced duplicate that
+       can drift. Theme lives in the Tetapan sheet instead. -->
+  <div id="drawer-backdrop"></div>
+  <aside id="mobile-drawer" aria-label="Maklumat">
+    <span class="sheet-grabber"></span>
+    <div class="sheet-top">
+      <span class="sheet-kicker">INFO</span>
+      <button id="drawer-close" type="button" aria-label="Tutup maklumat">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg>
+      </button>
+    </div>
+    <h2>Maklumat peta</h2>
+    <p class="sheet-lede">Kunci warna tahap amaran dan sumber data.</p>
+    <div class="flex flex-col gap-4 overflow-y-auto">
       <div id="drawer-theme-slot" class="flex items-center justify-between gap-3">
         <span class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Tema paparan</span>
       </div>
       <div id="drawer-export-slot"></div>
       <div id="drawer-legend-slot"></div>
-      <div class="border-t border-zinc-200 dark:border-zinc-700 pt-3 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+      <div class="drawer-sources">
         <div>Sumber data: MET Malaysia / data.gov.my</div>
         <div id="drawer-updated">—</div>
       </div>
+      <button id="drawer-done" type="button">Selesai</button>
     </div>
   </aside>
 
@@ -328,6 +322,17 @@
       </div>
     </section>
 
+    <section id="model-card" hidden
+      class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md shadow-lg overflow-hidden shrink-0">
+      <div class="p-4">
+        <div class="flex items-center gap-2">
+          <h2 class="font-display font-bold text-lg text-zinc-900 dark:text-zinc-100 m-0">Hujan model</h2>
+          <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">Anggaran</span>
+        </div>
+        <div id="model-body" class="mt-1 text-sm text-zinc-700 dark:text-zinc-300"></div>
+      </div>
+    </section>
+
     <section id="card-thunder" class="shrink-0"></section>
     <section id="card-rain" hidden class="shrink-0"></section>
   </div>
@@ -365,8 +370,8 @@
   </div>
 
   <!-- Mobile-first bottom nav (titisan-style floating pill). Desktop never
-       shows this. Peta = reset view; Amaran = expand sheet; Lapisan =
-       layers sheet; Tetapan = settings drawer. -->
+       shows this. Peta = reset view; Amaran = warnings popup; Tetapan =
+       layers sheet; Info = drawer (legend key + sources). -->
   <nav id="m-bottomnav" aria-label="Navigasi utama">
     <button type="button" data-nav="map" class="active">
       <svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9.5V21h5v-6h4v6h5V9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -377,19 +382,19 @@
       <span>Amaran</span>
     </button>
     <button type="button" data-nav="layers">
-      <svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
-      <span>Lapisan</span>
-    </button>
-    <button type="button" data-nav="settings">
       <svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="15" cy="7" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="17" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
       <span>Tetapan</span>
+    </button>
+    <button type="button" data-nav="settings">
+      <svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="8" r="1.2" fill="currentColor"/></svg>
+      <span>Info</span>
     </button>
   </nav>
 
   <!-- Mobile layers sheet (titisan "Lapisan peta"): toggles for Perairan
        + legend key. Desktop never shows this. -->
   <div id="m-layers-backdrop"></div>
-  <section id="m-layers-sheet" aria-label="Lapisan peta" hidden>
+  <section id="m-layers-sheet" aria-label="Lapisan peta" aria-hidden="true">
     <span class="sheet-grabber"></span>
     <div class="sheet-top">
       <span class="sheet-kicker">PETA</span>
@@ -411,6 +416,12 @@
         <span class="layer-text"><strong>Angin</strong><small id="m-wind-note">Zarahan ujian (?windtest).</small></span>
         <span id="m-wind-state" class="layer-state">Mati</span>
       </div>
+      <label class="layer-row">
+        <span class="layer-icon">🌙</span>
+        <span class="layer-text"><strong>Tema gelap</strong><small>Paparan malam untuk peta.</small></span>
+        <input id="m-theme-toggle" type="checkbox">
+        <span class="switch" aria-hidden="true"></span>
+      </label>
       <div class="layer-row layer-static">
         <span class="layer-icon">🗺️</span>
         <span class="layer-text"><strong>Legenda</strong><small>Kunci warna tahap amaran.</small></span>
@@ -419,6 +430,56 @@
     </div>
     <p class="sheet-note">Warna peta menunjukkan tahap amaran. Ketik butang maklumat untuk maksud setiap warna.</p>
     <button id="m-layers-done" type="button">Selesai</button>
+  </section>
+
+  <!-- Mobile location sheet: GPS fix or manual Negeri/Daerah picks
+       (the select wraps move here on mobile, desktop restores — see
+       layoutMobileNodes). One merged entry point replaces the old
+       separate Cari + Locate pills. -->
+  <div id="m-location-backdrop"></div>
+  <section id="m-location-sheet" aria-label="Lokasi" aria-hidden="true">
+    <span class="sheet-grabber"></span>
+    <div class="sheet-top">
+      <span class="sheet-kicker">LOKASI</span>
+      <button id="m-location-close" type="button" aria-label="Tutup lokasi">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg>
+      </button>
+    </div>
+    <h2>Lokasi anda</h2>
+    <p class="sheet-lede">Guna GPS atau pilih negeri dan daerah manual.</p>
+    <button id="m-gps-btn" type="button">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Guna lokasi saya
+    </button>
+    <div id="m-gps-status" role="status">Lokasi dibundarkan ke kawasan terdekat dan tidak disimpan.</div>
+    <div class="sheet-or">Atau pilih manual</div>
+    <div id="m-loc-state-slot"></div>
+    <div id="m-loc-district-slot"></div>
+    <button id="m-location-done" type="button">Selesai</button>
+  </section>
+
+  <!-- Mobile warning popup (titisan detail-style floating card). Hidden by
+       default; opens on Amaran nav / status-card tap. The real warning +
+       forecast + nationwide-list nodes move into #m-warn-slot on mobile
+       (single-copy move, desktop restores — see layoutMobileNodes). -->
+  <section id="m-warn-popup" aria-label="Amaran aktif" aria-hidden="true">
+    <div class="sheet-top">
+      <span class="sheet-kicker" id="m-warn-kicker">AMARAN</span>
+      <button id="m-warn-close" type="button" aria-label="Tutup amaran">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg>
+      </button>
+    </div>
+    <h2 id="m-warn-title">Malaysia</h2>
+    <div class="warn-index">
+      <strong id="m-warn-count">—</strong>
+      <span id="m-warn-pill" data-tier="">Tiada</span>
+    </div>
+    <p id="m-warn-sub">Sumber: MET Malaysia / data.gov.my</p>
+    <div id="m-warn-slot"></div>
+    <div class="warn-actions">
+      <button id="m-warn-map-btn" type="button">Lihat di peta</button>
+      <button id="m-warn-layers-btn" type="button">Lapisan peta</button>
+    </div>
   </section>
 
   <!-- Leaflet JS -->
@@ -686,10 +747,12 @@
     function initMobileDrawer() {
       const btn = document.getElementById('menu-toggle');
       const closeBtn = document.getElementById('drawer-close');
+      const doneBtn = document.getElementById('drawer-done');
       const backdrop = document.getElementById('drawer-backdrop');
       if (!btn) return;
       btn.addEventListener('click', () => setDrawerOpen(!document.documentElement.classList.contains('drawer-open')));
       if (closeBtn) closeBtn.addEventListener('click', () => setDrawerOpen(false));
+      if (doneBtn) doneBtn.addEventListener('click', () => setDrawerOpen(false));
       if (backdrop) backdrop.addEventListener('click', () => setDrawerOpen(false));
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && document.documentElement.classList.contains('drawer-open')) setDrawerOpen(false);
@@ -705,9 +768,25 @@
     function layoutMobileNodes() {
       const mq = window.matchMedia('(max-width: 767px)');
       const slots = new Map([
-        ['theme-toggle', 'drawer-theme-slot'],
+        // theme-toggle stays in the brand bar now — mobile theme lives in
+        // the Tetapan sheet (#m-theme-toggle), desktop keeps its button.
         ['export-btn', 'drawer-export-slot'],
         ['map-legend', 'drawer-legend-slot'],
+        // Round 2: search popover floats over the toolbar+status stack
+        // (brand-bar is display:none on mobile); warning/forecast nodes
+        // live in the popup instead of the bottom sheet.
+        ['location-popover', 'topleft-stack'],
+        // The select wraps move into the mobile location sheet (desktop
+        // restores) — a district pick also dismisses that sheet.
+        ['loc-state-wrap', 'm-loc-state-slot'],
+        ['loc-district-wrap', 'm-loc-district-slot'],
+        // Popup order: forecast first, then the official warning cards,
+        // then the model section, then the nationwide list.
+        ['forecast-card', 'm-warn-slot'],
+        ['card-thunder', 'm-warn-slot'],
+        ['card-rain', 'm-warn-slot'],
+        ['model-card', 'm-warn-slot'],
+        ['nationwide-summary-list', 'm-warn-slot'],
       ]);
       const homes = new Map();
       const apply = () => {
@@ -797,36 +876,480 @@
         pill.textContent = tier ? tierRowLabel(tier) : 'Tiada';
       }
       if (countEl) countEl.textContent = count;
+      updateWarnPopupHeader(area, scope, tier, count);
+    }
+
+    // Mobile warning popup (round 2): floating card, titisan detail-style.
+    // Header mirrors the status card; the body IS the real warning/forecast
+    // nodes (moved into #m-warn-slot), so no render path changes.
+    function setWarnPopup(open) {
+      const popup = document.getElementById('m-warn-popup');
+      if (!popup) return;
+      popup.classList.toggle('open', open);
+      popup.setAttribute('aria-hidden', String(!open));
+      document.getElementById('m-status-card')?.setAttribute('aria-expanded', String(open));
+      if (open) setLayersOpen(false);
+      document.querySelectorAll('#m-bottomnav button').forEach(b =>
+        b.classList.toggle('active', open ? b.dataset.nav === 'warnings' : b.dataset.nav === 'map'));
+    }
+
+    function updateWarnPopupHeader(area, scope, tier, count) {
+      const popup = document.getElementById('m-warn-popup');
+      if (!popup) return;
+      const kicker = document.getElementById('m-warn-kicker');
+      const title = document.getElementById('m-warn-title');
+      const pill = document.getElementById('m-warn-pill');
+      const countEl = document.getElementById('m-warn-count');
+      const sub = document.getElementById('m-warn-sub');
+      if (kicker) kicker.textContent = isNationwide ? 'MALAYSIA' : (focusDistrict ? 'DAERAH' : ('NEGERI · ' + ((cfg.districts || []).length || '—') + ' DAERAH'));
+      if (title) title.textContent = area;
+      if (pill) {
+        pill.dataset.tier = tier || '';
+        pill.textContent = tier ? tierRowLabel(tier) : 'Tiada';
+      }
+      if (countEl) countEl.textContent = count;
+      if (sub) {
+        const cs = document.getElementById('coastal-status');
+        sub.textContent = (cs && !cs.hidden && cs.textContent) ? cs.textContent : 'Sumber: MET Malaysia / data.gov.my';
+      }
+    }
+
+    // Phase 1 model data (Open-Meteo, district-only): 24j rain total +
+    // next-24h bars + 3-day rows inside #model-card. Clearly labelled
+    // Anggaran, never styled as an official warning; any failure degrades
+    // to one muted line and never blocks the MET cards.
+    const modelCache = new Map(); // district -> { t, data }, 30-min TTL
+
+    function hideModelCard() {
+      const el = document.getElementById('model-card');
+      if (el) el.hidden = true;
+    }
+
+    function districtCentroid(name) {
+      if (!fullGeoData || !fullGeoData.features) return null;
+      const f = fullGeoData.features.find(f => f.properties && f.properties.name === name);
+      if (!f || !f.geometry) return null;
+      const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates]
+        : f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates : null;
+      if (!polys || !polys.length || !polys[0].length || !polys[0][0].length) return null;
+      const ring = polys[0][0];
+      let sx = 0, sy = 0;
+      ring.forEach(p => { sx += p[0]; sy += p[1]; });
+      return { lon: sx / ring.length, lat: sy / ring.length };
+    }
+
+    // River point cache (district -> {lat,lon} | null) — the snap lattice
+    // is stable, so only the discharge series re-fetches per TTL.
+    const riverPointCache = new Map();
+
+    // Snap a district centroid to the nearest GloFAS river grid cell: one
+    // multi-location Flood request over a small lattice, first non-null
+    // cell wins (lattice ordered nearest-first). Null when the whole
+    // neighbourhood is dry/sea — the section then shows rain only.
+    async function snapRiverPoint(lat, lon) {
+      const pts = [];
+      for (const [dla, dlo] of [[0, 0], [0.05, 0], [-0.05, 0], [0, 0.05], [0, -0.05], [0.05, 0.05], [0.05, -0.05], [-0.05, 0.05], [-0.05, -0.05], [0.1, 0], [-0.1, 0], [0, 0.1], [0, -0.1], [0.15, 0], [-0.15, 0], [0, 0.15], [0, -0.15]]) {
+        pts.push([+(lat + dla).toFixed(2), +(lon + dlo).toFixed(2)]);
+      }
+      const url = `https://flood-api.open-meteo.com/v1/flood?latitude=${pts.map(p => p[0]).join(',')}&longitude=${pts.map(p => p[1]).join(',')}&daily=river_discharge&past_days=2&forecast_days=1&timezone=Asia%2FKuala_Lumpur`;
+      const res = await fetchWithTimeout(url, 10000);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const locs = Array.isArray(data) ? data : [data];
+      for (let i = 0; i < locs.length; i++) {
+        const v = ((locs[i].daily || {}).river_discharge) || [];
+        if (v.some(x => x !== null && Number.isFinite(x))) return { lat: pts[i][0], lon: pts[i][1] };
+      }
+      return null;
+    }
+
+    // Tide from the marine sea-level curve: highs/lows are derived from
+    // local extrema (the API ships no high/low fields). Centroid sampled
+    // directly — the ocean model interpolates, verified non-null live.
+    function tideDayLabel(iso) {
+      const tz = 'Asia/Kuala_Lumpur';
+      const d = new Date(iso).toLocaleDateString('en-CA', { timeZone: tz });
+      const t = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+      const p = new Date(Date.now() + 864e5).toLocaleDateString('en-CA', { timeZone: tz });
+      const p2 = new Date(Date.now() + 2 * 864e5).toLocaleDateString('en-CA', { timeZone: tz });
+      if (d === t) return 'Hari ini';
+      if (d === p) return 'Esok';
+      if (d === p2) return 'Lusa';
+      return new Date(iso).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', timeZone: tz });
+    }
+
+    function tideTimeFmt(iso) {
+      return new Date(iso).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' });
+    }
+
+    function smoothPath(pts) {
+      if (pts.length < 2) return '';
+      let d = `M${pts[0].x},${pts[0].y}`;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+        const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+        const c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+        d += `C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x},${p2.y}`;
+      }
+      return d;
+    }
+
+    async function fetchTideForDistrict(c) {
+      const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${c.lat.toFixed(4)}&longitude=${c.lon.toFixed(4)}&hourly=sea_level_height_msl&past_days=1&forecast_days=3&timezone=Asia%2FKuala_Lumpur`;
+      const res = await fetchWithTimeout(url, 10000);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const times = (data.hourly && data.hourly.time) || [];
+      const vals = (data.hourly && data.hourly.sea_level_height_msl) || [];
+      if (!times.length) return null;
+      const nowMs = Date.now();
+      let ni = 0;
+      for (let i = 0; i < times.length; i++) { if (new Date(times[i]).getTime() <= nowMs) ni = i; else break; }
+      if (vals[ni] == null) return null;
+      const events = [];
+      for (let i = Math.max(1, ni); i < vals.length - 1; i++) {
+        const a = vals[i - 1], b = vals[i], cc = vals[i + 1];
+        if (a == null || b == null || cc == null) continue;
+        if (b > a && b >= cc) events.push({ type: 'high', i, t: times[i], h: b });
+        else if (b < a && b <= cc) events.push({ type: 'low', i, t: times[i], h: b });
+      }
+      const nextHigh = events.find(e => e.type === 'high');
+      const nextLow = events.find(e => e.type === 'low');
+      if (!nextHigh && !nextLow) return null;
+      const first = nextHigh && nextLow ? (nextHigh.i < nextLow.i ? nextHigh : nextLow) : (nextHigh || nextLow);
+      const curve = vals.slice(ni, ni + 24);
+      if (curve.length < 12 || curve.some(v => v == null)) return null;
+      const prev = vals[ni - 1];
+      return { now: vals[ni], up: prev != null ? vals[ni] > prev : true, first, nextHigh, nextLow, curve, rel: first.i - ni };
+    }
+
+    // Discharge now vs the past 90 days at the snapped cell → percentile.
+    async function fetchRiverForDistrict(name, c) {
+      let pt = riverPointCache.get(name);
+      if (pt === undefined) {
+        try { pt = await snapRiverPoint(c.lat, c.lon); }
+        catch (e) { console.warn('[weather] Flood snap failed:', e.message); return null; }
+        riverPointCache.set(name, pt);
+      }
+      if (!pt) return null;
+      const url = `https://flood-api.open-meteo.com/v1/flood?latitude=${pt.lat}&longitude=${pt.lon}&daily=river_discharge&past_days=90&forecast_days=1&timezone=Asia%2FKuala_Lumpur`;
+      const res = await fetchWithTimeout(url, 10000);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const days = (data.daily && data.daily.time) || [];
+      const vals = (data.daily && data.daily.river_discharge) || [];
+      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+      const ti = days.indexOf(todayStr);
+      if (ti < 0 || vals[ti] === null || !Number.isFinite(vals[ti])) return null;
+      const base = vals.slice(Math.max(0, ti - 90), ti).filter(x => x !== null && Number.isFinite(x));
+      if (base.length < 10) return null;
+      const q = vals[ti];
+      const pct = Math.round(base.filter(x => x <= q).length / base.length * 100);
+      return { lat: pt.lat, lon: pt.lon, pct, q };
+    }
+
+    async function fetchModelForDistrict(name) {
+      const card = document.getElementById('model-card');
+      const body = document.getElementById('model-body');
+      if (!card || !body) return;
+      card.hidden = false;
+      const now = Date.now();
+      const hit = modelCache.get(name);
+      if (hit && now - hit.t < 30 * 60 * 1000) { renderModelCard(hit); return; }
+      body.innerHTML = '<div class="text-sm text-zinc-500 dark:text-zinc-400">Memuatkan data model…</div>';
+      const c = districtCentroid(name);
+      if (!c) { body.innerHTML = '<div class="text-sm text-zinc-500 dark:text-zinc-400">Data model tidak tersedia buat masa ini.</div>'; return; }
+      // Rain + river + tide race independently — any may fail while the
+      // others still render (never blocks the MET cards either way).
+      const [rainSettled, riverSettled, tideSettled] = await Promise.allSettled([
+        (async () => {
+          const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat.toFixed(4)}&longitude=${c.lon.toFixed(4)}&hourly=precipitation,wind_speed_10m,wind_direction_10m,wind_gusts_10m&daily=precipitation_sum,precipitation_probability_max&timezone=Asia%2FKuala_Lumpur&forecast_days=4&past_days=1&wind_speed_unit=kmh`;
+          const res = await fetchWithTimeout(url, 10000);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })(),
+        fetchRiverForDistrict(name, c),
+        fetchTideForDistrict(c),
+      ]);
+      if (rainSettled.status === 'rejected') console.warn('[weather] Open-Meteo model fetch failed:', rainSettled.reason?.message);
+      if (riverSettled.status === 'rejected') console.warn('[weather] Flood model fetch failed:', riverSettled.reason?.message);
+      if (tideSettled.status === 'rejected') console.warn('[weather] Tide model fetch failed:', tideSettled.reason?.message);
+      const entry = {
+        rain: rainSettled.status === 'fulfilled' ? rainSettled.value : null,
+        river: riverSettled.status === 'fulfilled' ? riverSettled.value : null,
+        tide: tideSettled.status === 'fulfilled' ? tideSettled.value : null,
+      };
+      if (!entry.rain && !entry.river && !entry.tide) {
+        body.innerHTML = '<div class="text-sm text-zinc-500 dark:text-zinc-400">Data model tidak tersedia buat masa ini.</div>';
+        return;
+      }
+      modelCache.set(name, { t: now, ...entry });
+      renderModelCard(entry);
+    }
+
+    // 16-point Malay compass for wind direction degrees.
+    function windDirLabel(deg) {
+      const pts = ['Utara', 'Utara Timur Laut', 'Timur Laut', 'Timur Timur Laut', 'Timur', 'Timur Tenggara', 'Tenggara', 'Selatan Tenggara', 'Selatan', 'Selatan Barat Daya', 'Barat Daya', 'Barat Barat Daya', 'Barat', 'Barat Barat Laut', 'Barat Laut', 'Utara Barat Laut'];
+      return pts[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16];
+    }
+
+    function renderModelCard(entry) {
+      const body = document.getElementById('model-body');
+      if (!body || !entry) return;
+      let html = '';
+      const data = entry.rain;
+      if (data && data.hourly && data.daily) {
+        const times = data.hourly.time || [], vals = data.hourly.precipitation || [];
+        let idx = 0;
+        const nowMs = Date.now();
+        for (let i = 0; i < times.length; i++) {
+          if (new Date(times[i]).getTime() <= nowMs) idx = i; else break;
+        }
+        const past24 = vals.slice(Math.max(0, idx - 23), idx + 1);
+        const sum24 = past24.reduce((a, v) => a + (v || 0), 0);
+        const next24 = vals.slice(idx + 1, idx + 25);
+        const maxV = Math.max(0.5, ...next24.map(v => v || 0));
+        const bars = next24.map(v => `<i style="height:${Math.max(4, Math.round((v || 0) / maxV * 100))}%" title="${(v || 0).toFixed(1)} mm"></i>`).join('');
+        const labels = ['Hari ini', 'Esok', 'Lusa'];
+        const rows = [1, 2, 3].map((d, i) => {
+          const mm = (data.daily.precipitation_sum && data.daily.precipitation_sum[d]) || 0;
+          const pr = (data.daily.precipitation_probability_max && data.daily.precipitation_probability_max[d]) || 0;
+          return `<div class="flex items-baseline gap-2 py-1.5 border-t border-zinc-100 dark:border-zinc-800 first:border-t-0">` +
+            `<span class="font-semibold text-zinc-900 dark:text-zinc-100">${labels[i]}</span>` +
+            `<span class="ml-auto text-sm font-bold text-zinc-900 dark:text-zinc-100">${mm.toFixed(1)} mm</span>` +
+            `<span class="text-sm text-zinc-500 dark:text-zinc-400">${pr}%</span></div>`;
+        }).join('');
+        html +=
+          `<div class="text-sm text-zinc-700 dark:text-zinc-300">24 jam: <span class="font-bold text-zinc-900 dark:text-zinc-100">${sum24.toFixed(1)} mm</span></div>` +
+          `<div class="model-bars" aria-hidden="true">${bars}</div>` +
+          `<div>${rows}</div>`;
+      const wSpd = data.hourly.wind_speed_10m || [], wDir = data.hourly.wind_direction_10m || [], wGus = data.hourly.wind_gusts_10m || [];
+      if (wSpd.length > idx && wDir.length > idx) {
+        const sp = wSpd[idx] || 0, dr = wDir[idx] || 0, gu = (wGus[idx] != null ? wGus[idx] : sp);
+        const strength = sp < 10 ? 'Lemah' : sp < 30 ? 'Sederhana' : 'Kuat';
+        // Dial arrow points where the wind blows TO (direction + 180°).
+        const to = ((dr || 0) + 180) % 360;
+        let ticks = '';
+        for (let a = 0; a < 12; a++) {
+          const t = a * 30 * Math.PI / 180, major = a % 3 === 0;
+          const r1 = major ? 38 : 41, r2 = 44;
+          ticks += `<line x1="${(50 + r1 * Math.sin(t)).toFixed(1)}" y1="${(50 - r1 * Math.cos(t)).toFixed(1)}" x2="${(50 + r2 * Math.sin(t)).toFixed(1)}" y2="${(50 - r2 * Math.cos(t)).toFixed(1)}"/>`;
+        }
+        const cells = [0, 1, 2, 3, 4, 5, 6, 7].map(k => {
+          const i = idx + k;
+          if (i >= wSpd.length || i >= wDir.length) return '';
+          const rot = ((wDir[i] || 0) + 180) % 360;
+          const hr = new Date(times[i]).toLocaleString('en-US', { hour: 'numeric', hour12: true, timeZone: 'Asia/Kuala_Lumpur' }).replace(' ', '');
+          return `<span class="model-wind-cell"><i style="transform:rotate(${rot}deg)">➤</i><b>${Math.round(wSpd[i] || 0)}</b><small>${hr}</small></span>`;
+        }).join('');
+        html +=
+          `<div class="pt-2 mt-1 border-t border-zinc-200 dark:border-zinc-700">` +
+          `<div class="model-wind-head"><strong>Angin</strong><span class="model-wind-pill" data-s="${strength}">${strength}</span></div>` +
+          `<div class="model-wind-main">` +
+          `<svg viewBox="0 0 100 100" class="model-compass" aria-hidden="true"><circle cx="50" cy="50" r="46"/><g>${ticks}</g>` +
+          `<g transform="rotate(${to} 50 50)"><line x1="50" y1="50" x2="76" y2="50"/><polygon points="76,44 90,50 76,56"/><circle cx="50" cy="50" r="4"/></g></svg>` +
+          `<div><div class="model-wind-big">${Math.round(sp)}<small> km/j</small></div>` +
+          `<div class="text-sm text-zinc-900 dark:text-zinc-100">Dari ${windDirLabel(dr).toLowerCase()} · ${Math.round(dr)}°</div>` +
+          `<div class="text-sm text-zinc-500 dark:text-zinc-400">Tiupan ${Math.round(gu)} km/j</div></div>` +
+          `</div>` +
+          `<div class="model-wind-strip" aria-hidden="true">${cells}</div></div>`;
+      }
+      }
+      if (entry.river) {
+        const r = entry.river;
+        html +=
+          `<div class="flex items-baseline gap-2 pt-2 mt-1 border-t border-zinc-200 dark:border-zinc-700">` +
+          `<span class="text-sm text-zinc-700 dark:text-zinc-300">Sungai: persentil <span class="font-bold text-zinc-900 dark:text-zinc-100">${r.pct}%</span> (90 hari) · ${r.q.toFixed(1)} m³/s</span></div>` +
+          `<div class="text-xs text-zinc-500 dark:text-zinc-400">Titik GloFAS ${r.lat.toFixed(2)}°N ${r.lon.toFixed(2)}°E</div>`;
+      } else if (entry.rain) {
+        html += `<div class="pt-2 mt-1 border-t border-zinc-200 dark:border-zinc-700 text-sm text-zinc-500 dark:text-zinc-400">Tiada data sungai untuk daerah ini.</div>`;
+      }
+      if (entry.tide) {
+        const t = entry.tide;
+        const W = 300, H = 84, PAD = 6;
+        const vs = t.curve;
+        const mn = Math.min(...vs), mx = Math.max(...vs), span = Math.max(0.05, mx - mn);
+        const pts = vs.map((v, i) => ({
+          x: +(PAD + i * (W - 2 * PAD) / (vs.length - 1)).toFixed(1),
+          y: +((PAD + (1 - (v - mn) / span) * (H - 2 * PAD))).toFixed(1),
+        }));
+        const line = smoothPath(pts);
+        const area = `${line}L${pts[pts.length - 1].x},${H}L${pts[0].x},${H}Z`;
+        const evDot = (t.rel >= 0 && t.rel < pts.length)
+          ? `<circle cx="${pts[t.rel].x}" cy="${pts[t.rel].y}" r="5"/>` : '';
+        const firstLabel = t.first.type === 'high' ? 'Air pasang' : 'Air surut';
+        const tideRow = (ev, label, arrow) => ev
+          ? `<div class="flex items-baseline gap-2 py-2 border-t border-zinc-100 dark:border-zinc-800">` +
+            `<span class="text-zinc-500 dark:text-zinc-400">${arrow}</span>` +
+            `<span><span class="font-semibold text-zinc-900 dark:text-zinc-100">${label}</span><br>` +
+            `<span class="text-sm text-zinc-500 dark:text-zinc-400">${tideDayLabel(ev.t)}</span></span>` +
+            `<span class="ml-auto text-sm whitespace-nowrap"><span class="font-bold text-zinc-900 dark:text-zinc-100">${tideTimeFmt(ev.t)}</span> ${ev.h.toFixed(1)} m</span></div>`
+          : '';
+        html +=
+          `<div class="pt-2 mt-1 border-t border-zinc-200 dark:border-zinc-700">` +
+          `<div class="flex items-baseline gap-2"><strong class="model-tide-title">Pasang surut</strong>` +
+          `<span class="ml-auto text-xs text-zinc-500 dark:text-zinc-400">Model marin</span></div>` +
+          `<div class="flex items-baseline gap-2 mt-1"><span class="model-tide-kicker">SETERUSNYA<br><span>${firstLabel}</span></span>` +
+          `<span class="ml-auto text-right"><span class="font-bold text-zinc-900 dark:text-zinc-100">${tideTimeFmt(t.first.t)}</span><br>` +
+          `<span class="text-sm text-zinc-500 dark:text-zinc-400">${tideDayLabel(t.first.t)} · ${t.first.h.toFixed(1)} m</span></span></div>` +
+          `<svg viewBox="0 0 ${W} ${H}" class="model-tide-curve" aria-hidden="true">` +
+          `<path d="${area}"/><path d="${line}"/>` +
+          `<circle cx="${pts[0].x}" cy="${pts[0].y}" r="4" class="now"/>${evDot}</svg>` +
+          `<div class="flex items-baseline gap-2 text-sm"><span class="text-zinc-500 dark:text-zinc-400">Kini <span class="font-bold text-zinc-900 dark:text-zinc-100">${t.now.toFixed(1)} m</span></span>` +
+          `<span class="ml-auto text-zinc-500 dark:text-zinc-400">${t.up ? 'Air sedang pasang' : 'Air sedang surut'}</span></div>` +
+          tideRow(t.nextHigh, 'Air pasang', '↑') + tideRow(t.nextLow, 'Air surut', '↓') +
+          `<div class="text-xs text-zinc-500 dark:text-zinc-400">Anggaran model marin Open-Meteo, bukan jadual rasmi pasang surut.</div></div>`;
+      }
+      html += `<div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Anggaran Open-Meteo + GloFAS · bukan amaran rasmi.</div>`;
+      body.innerHTML = html;
     }
 
     // Mobile redesign wiring: toolbar pills, status card tap, layers
     // sheet, bottom nav. All delegate to existing functions — no new
     // state of their own (except the sheet's own hidden flag).
+    function setActiveNav(key) {
+      document.querySelectorAll('#m-bottomnav button').forEach(b => b.classList.toggle('active', b.dataset.nav === key));
+    }
+
     function setLayersOpen(open) {
       const sheet = document.getElementById('m-layers-sheet');
       const backdrop = document.getElementById('m-layers-backdrop');
       if (!sheet || !backdrop) return;
-      sheet.hidden = !open;
-      backdrop.hidden = !open;
+      sheet.classList.toggle('open', open);
+      sheet.setAttribute('aria-hidden', String(!open));
+      backdrop.classList.toggle('show', open);
+      setActiveNav(open ? 'layers' : 'map');
+      // Re-sync switches every open — theme can also change elsewhere.
+      const mTheme = document.getElementById('m-theme-toggle');
+      if (mTheme) mTheme.checked = document.documentElement.classList.contains('dark');
       document.querySelector('#m-bottomnav [data-nav="layers"]')?.classList.toggle('active', open);
     }
 
+    // GPS → district matcher over the cached nationwide GeoJSON: point in
+    // outer ring per polygon, first containing hit wins; else the nearest
+    // centroid within 0.25° as a border fallback, else null (manual pick).
+    function pointInRing(lat, lng, ring) {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+        if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+      }
+      return inside;
+    }
+
+    function matchDistrictToState(lat, lng) {
+      if (!fullGeoData || !fullGeoData.features) return null;
+      let best = null;
+      for (const f of fullGeoData.features) {
+        const g = f.geometry;
+        if (!g) continue;
+        const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : null;
+        if (!polys) continue;
+        const sc = f.properties && f.properties.state;
+        const stateKey = Object.keys(STATE_CONFIG).find(k => STATE_CONFIG[k].stateCode === sc);
+        if (!stateKey) continue;
+        for (const poly of polys) {
+          if (poly.length && poly[0].length && pointInRing(lat, lng, poly[0])) {
+            return { stateKey, district: f.properties.name };
+          }
+        }
+        const ring = (polys[0] && polys[0][0]) || [];
+        if (ring.length) {
+          let sx = 0, sy = 0;
+          ring.forEach(p => { sx += p[0]; sy += p[1]; });
+          const cx = sx / ring.length, cy = sy / ring.length;
+          const d2 = (lng - cx) * (lng - cx) + (lat - cy) * (lat - cy);
+          if (!best || d2 < best.d2) best = { d2, stateKey, district: f.properties.name };
+        }
+      }
+      return best && best.d2 <= 0.0625 ? { stateKey: best.stateKey, district: best.district } : null;
+    }
+
+    // Pulsating "you are here" dot — position only, never recenters the map.
+    let gpsDotLayer = null, gpsHaloLayer = null;
+    function clearGpsDot() {
+      if (gpsDotLayer && map) map.removeLayer(gpsDotLayer);
+      if (gpsHaloLayer && map) map.removeLayer(gpsHaloLayer);
+      gpsDotLayer = gpsHaloLayer = null;
+    }
+    function showGpsDot(lat, lng, accuracy) {
+      if (!map) return;
+      clearGpsDot();
+      const r = Math.min(Math.max(accuracy || 500, 150), 2000);
+      gpsHaloLayer = L.circle([lat, lng], { radius: r, color: '#2f6fed', weight: 2, opacity: 0.8, fillColor: '#2f6fed', fillOpacity: 0.15, interactive: false, className: 'gps-halo' }).addTo(map);
+      gpsDotLayer = L.circleMarker([lat, lng], { radius: 8, color: '#ffffff', weight: 3, fillColor: '#2f6fed', fillOpacity: 1, interactive: false, className: 'gps-dot' }).addTo(map);
+      gpsDotLayer.bringToFront();
+    }
+
+    function gpsStatus(msg) {
+      const el = document.getElementById('m-gps-status');
+      if (el) el.textContent = msg;
+    }
+
+    // Shared landing for live GPS + ?testgps=lat,lng: switch state when
+    // needed, pick the district (halo + forecast, no reframe — same as a
+    // manual pick), drop the dot. Never zooms.
+    function onGpsFix(lat, lng, accuracy) {
+      const hit = matchDistrictToState(lat, lng);
+      if (!hit) { gpsStatus('Di luar kawasan daerah — sila pilih manual.'); return; }
+      setLocationOpen(false);
+      if (hit.stateKey !== activeStateKey) switchState(hit.stateKey);
+      const sel = document.getElementById('districtSelect');
+      if (sel) sel.value = hit.district;
+      highlightByName(hit.district);
+      showGpsDot(lat, lng, accuracy);
+    }
+
+    function locateMe() {
+      const btn = document.getElementById('m-gps-btn');
+      if (!('geolocation' in navigator)) { gpsStatus('GPS tidak disokong — sila pilih manual.'); return; }
+      if (btn) btn.disabled = true;
+      gpsStatus('Mengesan lokasi…');
+      navigator.geolocation.getCurrentPosition(
+        pos => { if (btn) btn.disabled = false; onGpsFix(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy); },
+        err => {
+          if (btn) btn.disabled = false;
+          gpsStatus(err && err.code === 1 ? 'Akses lokasi ditolak — sila pilih manual.' : 'GPS tidak dapat dikesan — sila pilih manual.');
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+      );
+    }
+
+    function setLocationOpen(open) {
+      const sheet = document.getElementById('m-location-sheet');
+      const backdrop = document.getElementById('m-location-backdrop');
+      if (!sheet || !backdrop) return;
+      sheet.classList.toggle('open', open);
+      sheet.setAttribute('aria-hidden', String(!open));
+      backdrop.classList.toggle('show', open);
+    }
+
     function initMobileRedesign() {
-      document.getElementById('m-layers-btn')?.addEventListener('click', () => setLayersOpen(true));
-      document.getElementById('m-info-btn')?.addEventListener('click', () => setLayersOpen(true));
       document.getElementById('m-layers-close')?.addEventListener('click', () => setLayersOpen(false));
       document.getElementById('m-layers-done')?.addEventListener('click', () => setLayersOpen(false));
       document.getElementById('m-layers-backdrop')?.addEventListener('click', () => setLayersOpen(false));
-      document.getElementById('m-search-btn')?.addEventListener('click', () => {
-        const pop = document.getElementById('location-popover');
-        if (!pop) return;
-        pop.hidden = !pop.hidden;
-        if (!pop.hidden) document.getElementById('stateSelect')?.focus();
+      document.getElementById('m-location-btn')?.addEventListener('click', () => setLocationOpen(true));
+      document.getElementById('m-location-close')?.addEventListener('click', () => setLocationOpen(false));
+      document.getElementById('m-location-done')?.addEventListener('click', () => setLocationOpen(false));
+      document.getElementById('m-location-backdrop')?.addEventListener('click', () => setLocationOpen(false));
+      document.getElementById('m-gps-btn')?.addEventListener('click', locateMe);
+      // State change switches in place — dismiss the chooser (sheet or
+      // desktop popover) so it never lingers afterwards.
+      document.getElementById('stateSelect')?.addEventListener('change', () => {
+        document.getElementById('location-popover').hidden = true;
+        setLocationOpen(false);
       });
-      document.getElementById('m-locate-btn')?.addEventListener('click', () => resetMapView());
       document.getElementById('m-status-card')?.addEventListener('click', () => {
-        setSheetExpanded(true);
-        document.querySelectorAll('#m-bottomnav button').forEach(b => b.classList.toggle('active', b.dataset.nav === 'warnings'));
+        setWarnPopup(true);
+      });
+      document.getElementById('m-warn-close')?.addEventListener('click', () => setWarnPopup(false));
+      document.getElementById('m-warn-map-btn')?.addEventListener('click', () => {
+        setWarnPopup(false);
+        resetMapView();
+      });
+      document.getElementById('m-warn-layers-btn')?.addEventListener('click', () => {
+        setWarnPopup(false);
+        setLayersOpen(true);
       });
       document.getElementById('m-legend-btn')?.addEventListener('click', () => {
         setLayersOpen(false);
@@ -842,6 +1365,16 @@
           renderCoastalStatus();
         });
       }
+      // Tema toggle reuses the desktop theme button's own handler (tile
+      // recreate + boundary restyle included) via a delegated click.
+      const mTheme = document.getElementById('m-theme-toggle');
+      if (mTheme) {
+        mTheme.checked = document.documentElement.classList.contains('dark');
+        mTheme.addEventListener('change', () => {
+          document.getElementById('theme-toggle')?.click();
+          mTheme.checked = document.documentElement.classList.contains('dark');
+        });
+      }
       const windNote = document.getElementById('m-wind-note');
       const windState = document.getElementById('m-wind-state');
       if (windNote && windState && WINDTEST_PARAM) {
@@ -851,15 +1384,18 @@
       document.querySelectorAll('#m-bottomnav button').forEach(btn => {
         btn.addEventListener('click', () => {
           const nav = btn.dataset.nav;
-          document.querySelectorAll('#m-bottomnav button').forEach(b => b.classList.toggle('active', b === btn));
-          if (nav === 'map') { setLayersOpen(false); setDrawerOpen(false); setSheetExpanded(false); resetMapView(); }
-          else if (nav === 'warnings') { setLayersOpen(false); setSheetExpanded(true); }
-          else if (nav === 'layers') { setDrawerOpen(false); setLayersOpen(true); }
-          else if (nav === 'settings') { setLayersOpen(false); setDrawerOpen(true); }
+          const popup = document.getElementById('m-warn-popup');
+          const sheet = document.getElementById('m-layers-sheet');
+          // Amaran + Tetapan toggle: tapping the active tab again closes
+          // its sheet and falls back to Peta.
+          if (nav === 'map') { setWarnPopup(false); setLayersOpen(false); setDrawerOpen(false); setSheetExpanded(false); setActiveNav('map'); resetMapView(); }
+          else if (nav === 'warnings') { setLayersOpen(false); setWarnPopup(!(popup && popup.classList.contains('open'))); }
+          else if (nav === 'layers') { setDrawerOpen(false); setWarnPopup(false); setLayersOpen(!(sheet && sheet.classList.contains('open'))); }
+          else if (nav === 'settings') { setLayersOpen(false); setWarnPopup(false); setDrawerOpen(true); setActiveNav('settings'); }
         });
       });
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') setLayersOpen(false);
+        if (e.key === 'Escape') { setLayersOpen(false); setWarnPopup(false); setLocationOpen(false); }
       });
       updateMobileStatus();
     }
@@ -1004,6 +1540,9 @@
       const col = document.getElementById('side-column');
       if (!col || isNationwide) return; // nationwide's side-column is legend-only — never tall enough to matter
       const mobile = isMobileViewport();
+      // Round 2: the column lives display:none on mobile (popup hosts the
+      // cards instead) — nothing to measure, bail before touching styles.
+      if (mobile && getComputedStyle(col).display === 'none') return;
       // Mobile's #side-column is a collapsed/expanded bottom sheet (style.css's
       // <768px block) — while COLLAPSED (peek state, max-height:48px) it's
       // only ever meant to show #sheet-handle's one-line summary, not a
@@ -1884,6 +2423,13 @@
             document.getElementById('districtSelect').value = preselect;
             highlightByName(preselect);
           }
+
+          // ?testgps=lat,lng — drives the GPS landing path without hardware.
+          const testGps = new URLSearchParams(window.location.search).get('testgps');
+          if (testGps) {
+            const parts = testGps.split(',').map(Number);
+            if (parts.length === 2 && parts.every(Number.isFinite)) onGpsFix(parts[0], parts[1], 500);
+          }
         })
         .catch(err => {
           console.warn('[weather] Failed to load district map:', err.message);
@@ -1938,6 +2484,7 @@
       focusDistrict = null;
       forecastToday = null;
       clearSelectionHalo();
+      clearGpsDot();
       populateDistrictSelect();
       warningDistricts = new Map();
       warningOverlap = new Set();
@@ -1953,6 +2500,7 @@
       nationwideActiveWarnings = [];
       activeWarnings = [];
       renderForecast();
+      hideModelCard();
       updateSheetHandleText();
       repaintMap();
       renderCards();
@@ -2002,10 +2550,12 @@
       updateSheetHandleText();
       if (focusDistrict) {
         refreshForecast();
+        fetchModelForDistrict(name);
       }
 
       if (!name) {
         clearSelectionHalo();
+        hideModelCard();
         repaintMap();
         resetMapView();
         return;
@@ -2021,9 +2571,9 @@
           // halo + forecast card only, never reframes the map — the state
           // view holds until the viewer pans/zooms manually.
           // A district pick is the clearest possible "I want to see
-          // this" signal — reveal the sheet on mobile rather than
-          // leaving the viewer to notice/tap the peek handle themselves.
-          if (isMobileViewport()) setSheetExpanded(true);
+          // this" signal — reveal the popup on mobile rather than
+          // leaving the viewer to notice/tap the status card themselves.
+          if (isMobileViewport()) setWarnPopup(true);
         } else {
           geojsonLayer.resetStyle(layer);
         }
@@ -2042,7 +2592,7 @@
       // jump to — disable rather than leave an active-looking select with
       // only the placeholder option.
       sel.disabled = cfg.districts.length === 0;
-      sel.onchange = () => highlightByName(sel.value);
+      sel.onchange = () => { highlightByName(sel.value); setLocationOpen(false); };
     }
 
     // Populates #stateSelect from STATE_CONFIG once, at boot. Choosing a
@@ -2313,7 +2863,7 @@
       const bar = document.getElementById('nationwide-summary-bar');
       const list = document.getElementById('nationwide-summary-list');
       const countChip = document.getElementById('nationwide-summary-count');
-      if (!isNationwide) { bar.hidden = true; return; }
+      if (!isNationwide) { bar.hidden = true; list.innerHTML = ''; return; }
       bar.hidden = false;
 
       const stateCfgs = Object.values(STATE_CONFIG).filter(s => s.apiName && s.stateCode);
@@ -2420,6 +2970,7 @@
         el.hidden = false;
         el.textContent = `🌊 Perairan: ${parts.join(' • ')}${TEST_COASTAL_PARAM !== null ? ' (data ujian)' : ''}`;
         paintCoastalSwatch([...nationwideCoastal.values()].map(v => v.tier));
+        updateMobileStatus();
         return;
       }
       const has = !!warningCoastal.tier;
@@ -2432,6 +2983,7 @@
       el.hidden = false;
       el.textContent = `🌊 Perairan ${cfg.displayName}: ${MARINE_CATEGORY_LABEL[warningCoastal.category] || warningCoastal.category}${TEST_COASTAL_PARAM !== null ? ' (data ujian, bukan amaran sebenar)' : ''}`;
       paintCoastalSwatch([warningCoastal.tier]);
+      updateMobileStatus();
     }
 
     // Nationwide mode: one thunderstorm fetch (buildWarningApiUrl omits
@@ -3066,6 +3618,7 @@
       if (EXPORT_PARAM) initExportButton();
       renderClock();
       renderForecast(); // hides the forecast card immediately (no district picked yet)
+      hideModelCard();
       renderCards();    // paint both empty warning-card states immediately, before first fetch
       renderNationwidePanel();
 
