@@ -255,7 +255,10 @@
         <span class="w-3.5 h-3.5 rounded shrink-0" style="background:#fdfe00;border:3px dashed #2516d2"></span>Hujan + Ribut Petir
       </div>
       <div id="coastal-legend-row" hidden class="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 mt-1.5">
-        <span id="coastal-legend-swatch" class="w-3.5 h-3.5 rounded shrink-0" style="background:transparent;border:4px solid #0284c7"></span>Amaran Perairan (garis pantai)
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input id="coastal-toggle" type="checkbox" checked class="w-3.5 h-3.5 shrink-0 accent-sky-600">
+          <span id="coastal-legend-swatch" class="w-3.5 h-3.5 rounded shrink-0" style="background:transparent;border:4px solid #0284c7"></span><span>Amaran Perairan (garis pantai)</span>
+        </label>
       </div>
       <div id="coastal-status" hidden class="mt-2 text-[11px] leading-relaxed text-sky-700 dark:text-sky-300 font-semibold"></div>
     </section>
@@ -379,6 +382,7 @@
     let nationwideActiveWarnings = [];       // raw active warning objects, both sources (nationwide mode) — feeds the bottom summary bar's bulletin text
     let activeWarnings = [];          // filtered, currently-active warning objects
     let warningCoastal = { districts: new Set(), tier: null, category: null, items: [] }; // Phase 1 coastline (single-state)
+    let coastalEnabled = true; // waterline visibility — single-state defaults on, nationwide defaults off (legend toggle)
     let nationwideCoastal = new Map(); // stateCode → { tier, category } (Phase 1 coastline, nationwide)
     let coastalWarnings = [];         // raw marine warnings feeding the coastal parse (test + live)
     let lastCheckedAt = null;
@@ -1240,7 +1244,7 @@
 
     function renderCoastline() {
       if (coastalLayer) { map.removeLayer(coastalLayer); coastalLayer = null; }
-      if (!fullGeoData) return;
+      if (!coastalEnabled || !fullGeoData) return;
       const groups = warnedCoastGroups().map(g => {
         const segs = warnedCoastSegments(g.feats);
         if (!segs.length) return null;
@@ -1725,6 +1729,7 @@
       cfg = next;
       activeStateKey = key;
       isNationwide = !cfg.stateCode;
+      coastalEnabled = !isNationwide; // single-state shows waterline, nationwide hides it until toggled
 
       const params = new URLSearchParams(window.location.search);
       params.set('state', key);
@@ -2191,11 +2196,23 @@
     function renderCoastalStatus() {
       const el = document.getElementById('coastal-status');
       const row = document.getElementById('coastal-legend-row');
+      const toggle = document.getElementById('coastal-toggle');
+      if (toggle) {
+        toggle.checked = coastalEnabled;
+        if (!toggle.dataset.bound) {
+          toggle.dataset.bound = '1';
+          toggle.addEventListener('change', () => {
+            coastalEnabled = toggle.checked;
+            renderCoastline();
+            renderCoastalStatus();
+          });
+        }
+      }
       if (!el) return;
       if (isNationwide) {
+        if (row) row.hidden = false; // toggle always available here
         const has = !!(nationwideCoastal && nationwideCoastal.size);
-        if (row) row.hidden = !has;
-        if (!nationwideCoastal || !nationwideCoastal.size) {
+        if (!has || !coastalEnabled) {
           el.hidden = true;
           el.textContent = '';
           return;
@@ -2209,13 +2226,13 @@
         paintCoastalSwatch([...nationwideCoastal.values()].map(v => v.tier));
         return;
       }
-      if (!warningCoastal.tier) {
-        if (row) row.hidden = true;
+      const has = !!warningCoastal.tier;
+      if (row) row.hidden = !has;
+      if (!has || !coastalEnabled) {
         el.hidden = true;
         el.textContent = '';
         return;
       }
-      if (row) row.hidden = false;
       el.hidden = false;
       el.textContent = `🌊 Perairan ${cfg.displayName}: ${MARINE_CATEGORY_LABEL[warningCoastal.category] || warningCoastal.category}${TEST_COASTAL_PARAM !== null ? ' (data ujian, bukan amaran sebenar)' : ''}`;
       paintCoastalSwatch([warningCoastal.tier]);
@@ -2834,6 +2851,7 @@
         cfg = STATE_CONFIG['malaysia'] || Object.values(STATE_CONFIG)[0];
       }
       isNationwide = !cfg.stateCode;
+      coastalEnabled = !isNationwide; // single-state shows waterline, nationwide hides it until toggled
       document.getElementById('page-footer').hidden = isNationwide;
 
       document.title = `Cuaca ${cfg.displayName} — Amaran & Peta Daerah`;
