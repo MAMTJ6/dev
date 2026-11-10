@@ -1156,15 +1156,99 @@
     function overlapStyle(tier, weight) {
       return { ...districtWarningStyle(tier), color: '#2516d2', weight, dashArray: '6 4' };
     }
-    // Phase 1 coastline paint: fixed marine-blue outline, zero fill when
-    // land is clear. When land + coastal coincide, the caller keeps the
-    // land fill and swaps only the border to this same marine blue — one
-    // border can't carry two signals, so fill stays land truth, outline
-    // carries coastal, category lives in the status text. Fixed hue (not
-    // tier hue) so first-category yellow still reads on a yellow fill.
-    const COASTAL_OUTLINE_COLOR = '#0284c7';
-    function coastalStyle(tier, weight) {
-      return { fillColor: '#ffffff', fillOpacity: 0, color: COASTAL_OUTLINE_COLOR, weight, opacity: 1 };
+    // Phase 1 coastline overlay — true seaward-edge polylines, not
+    // recolored district borders. Edge counts cached once per GeoJSON
+    // load over every district nationwide: a coastal-district edge seen
+    // exactly once touches no neighbour → sea. Interstate borders count
+    // too (fullGeoData, not just the loaded state) so Pahang–Johor style
+    // land borders never highlight.
+    const COASTLINE_COLOR = '#0284c7';
+    let coastalLayer = null;
+    let coastEdgeCount = null; // edgeKey → occurrences across fullGeoData
+
+    function roundedPtKey(lon, lat) { return lon.toFixed(5) + ',' + lat.toFixed(5); }
+    function edgeKey(a, b) { return a < b ? a + '|' + b : b + '|' + a; }
+
+    function cacheCoastEdges() {
+      coastEdgeCount = new Map();
+      if (!fullGeoData || !fullGeoData.features) return;
+      fullGeoData.features.forEach(f => {
+        const geom = f.geometry;
+        if (!geom) return;
+        const polys = geom.type === 'Polygon' ? [geom.coordinates] : (geom.type === 'MultiPolygon' ? geom.coordinates : []);
+        polys.forEach(poly => {
+          const outer = poly[0];
+          if (!outer) return;
+          for (let i = 0; i + 1 < outer.length; i++) {
+            const k = edgeKey(roundedPtKey(outer[i][0], outer[i][1]), roundedPtKey(outer[i + 1][0], outer[i + 1][1]));
+            coastEdgeCount.set(k, (coastEdgeCount.get(k) || 0) + 1);
+          }
+        });
+      });
+    }
+
+    // Consecutive unshared-edge runs of one closed outer ring → paths.
+    // Rotates to start after a shared edge so a wrap-around coast stays
+    // one run; an all-coast ring (island, e.g. Tioman) returns the ring.
+    function ringCoastRuns(ring) {
+      const n = ring.length - 1; // closed ring: last === first
+      if (n < 1) return [];
+      const kept = [];
+      for (let i = 0; i < n; i++) {
+        const k = edgeKey(roundedPtKey(ring[i][0], ring[i][1]), roundedPtKey(ring[i + 1][0], ring[i + 1][1]));
+        kept.push((coastEdgeCount.get(k) || 0) === 1);
+      }
+      if (!kept.some(Boolean)) return [];
+      let start = 0;
+      for (let i = 0; i < n; i++) {
+        if (kept[i] && !kept[(i - 1 + n) % n]) { start = i; break; }
+      }
+      const runs = [];
+      let cur = null;
+      for (let s = 0; s < n; s++) {
+        const i = (start + s) % n;
+        if (kept[i]) {
+          if (!cur) cur = [ring[i]];
+          cur.push(ring[i + 1]);
+        } else if (cur) { runs.push(cur); cur = null; }
+      }
+      if (cur) runs.push(cur);
+      return runs.map(r => r.map(([lon, lat]) => [lat, lon]));
+    }
+
+    function coastalDistrictNames() {
+      if (isNationwide) {
+        const names = new Set();
+        if (nationwideCoastal && nationwideCoastal.size && STATE_CONFIG) {
+          nationwideCoastal.forEach((v, code) => {
+            const sc = Object.values(STATE_CONFIG).find(s => s.stateCode === code);
+            ((sc && sc.coastal) || []).forEach(d => names.add(d));
+          });
+        }
+        return { names, weight: 3 };
+      }
+      return { names: (warningCoastal && warningCoastal.districts) || new Set(), weight: 4 };
+    }
+
+    function renderCoastline() {
+      if (coastalLayer) { map.removeLayer(coastalLayer); coastalLayer = null; }
+      if (TEST_COASTAL_PARAM === null || !fullGeoData || !coastEdgeCount) return;
+      const { names, weight } = coastalDistrictNames();
+      if (!names.size) return;
+      const lines = [];
+      fullGeoData.features.forEach(f => {
+        if (!names.has(f.properties.name)) return;
+        const geom = f.geometry;
+        if (!geom) return;
+        const polys = geom.type === 'Polygon' ? [geom.coordinates] : (geom.type === 'MultiPolygon' ? geom.coordinates : []);
+        polys.forEach(poly => {
+          ringCoastRuns(poly[0] || []).forEach(path => { if (path.length > 1) lines.push(path); });
+        });
+      });
+      if (!lines.length) return;
+      coastalLayer = L.layerGroup(lines.map(path =>
+        L.polyline(path, { color: COASTLINE_COLOR, weight, opacity: 1, interactive: false })));
+      coastalLayer.addTo(map);
     }
     const MARINE_CATEGORY_LABEL = { first: 'Kategori Pertama', second: 'Kategori Kedua', third: 'Kategori Ketiga', searise: 'Kenaikan Paras Laut', thunderstorm: 'Ribut Petir di Perairan' };
     // Phase 1 coastal compute — single-state: highest marine tier across
@@ -1196,47 +1280,25 @@
 
       if (isNationwide) {
         const tier = nationwideDistrictTiers.get(name);
-        const coast = nationwideCoastal.get(feature.properties.state);
         if (tier && nationwideOverlap.has(name)) return overlapStyle(tier, 3);
-        // Land + coastal nationwide: land fill, marine-blue border.
-        if (tier) {
-          if (coast) return { ...districtWarningStyle(tier), color: COASTAL_OUTLINE_COLOR, weight: 3 };
-          return { ...districtWarningStyle(tier), color: '#8a8a8a', weight: NATIONWIDE_DISTRICT_WEIGHT };
-        }
+        if (tier) return { ...districtWarningStyle(tier), color: '#8a8a8a', weight: NATIONWIDE_DISTRICT_WEIGHT };
         // Vague "whole state, no district detail" wash — scoped to just
         // that state's own features via properties.state, since nationwide
         // mode renders every state at once (unlike single-state mode,
         // where a bare warningScope === 'state' flag was enough because
         // only one state's polygons were ever on screen).
         const wash = nationwideStateWash.get(feature.properties.state);
-        if (wash) {
-          if (coast) return { ...stateWarningStyle(wash), color: COASTAL_OUTLINE_COLOR, weight: 3 };
-          return { ...stateWarningStyle(wash), color: '#8a8a8a', weight: NATIONWIDE_DISTRICT_WEIGHT };
-        }
-        // Phase 1 coastline nationwide: stroke-only per-state coastal tier.
-        if (coast) return coastalStyle(coast.tier, 3);
+        if (wash) return { ...stateWarningStyle(wash), color: '#8a8a8a', weight: NATIONWIDE_DISTRICT_WEIGHT };
         return { ...PAGE_DEFAULT_STYLE, weight: NATIONWIDE_DISTRICT_WEIGHT };
       }
 
       const tier = warningDistricts.get(name);
-      const isCoast = warningCoastal.districts.has(name);
       // District-specific tier paints on top even under a state-wide wash,
       // so "SEKSYEN A: <State> (Maran)" stays visible inside a vaguer
       // whole-state section from another bulletin.
       if (tier && warningOverlap.has(name)) return overlapStyle(tier, 5);
-      // Land + coastal: keep the land fill (land truth), swap only the
-      // border to marine blue so the coastline still reads over any fill.
-      if (tier) {
-        if (isCoast) return { ...districtWarningStyle(tier), color: COASTAL_OUTLINE_COLOR, weight: 4 };
-        return { ...districtWarningStyle(tier), color: '#8a8a8a', weight: 2 };
-      }
-      if (warningScope === 'state') {
-        if (isCoast) return { ...stateWarningStyle(warningStateTier), color: COASTAL_OUTLINE_COLOR, weight: 4 };
-        return { ...stateWarningStyle(warningStateTier), color: '#8a8a8a', weight: 2 };
-      }
-      // Phase 1 coastline: stroke-only on coastal districts with no land
-      // warning — land fill always wins above, so this never hides land.
-      if (isCoast) return coastalStyle(warningCoastal.tier, 4);
+      if (tier) return { ...districtWarningStyle(tier), color: '#8a8a8a', weight: 2 };
+      if (warningScope === 'state') return { ...stateWarningStyle(warningStateTier), color: '#8a8a8a', weight: 2 };
       return PAGE_DEFAULT_STYLE;
     }
 
@@ -1276,14 +1338,8 @@
           if (overlap.has(layer.feature.properties.name)) layer.bringToFront();
         });
       }
-      // Coastal outlines to the front too — stroke-only (fillOpacity 0)
-      // needs to sit above grey neighbours to read as a coastline.
-      const coastSet = isNationwide ? null : warningCoastal.districts;
-      if (coastSet && coastSet.size) {
-        geojsonLayer.eachLayer(layer => {
-          if (coastSet.has(layer.feature.properties.name)) layer.bringToFront();
-        });
-      }
+      // Coastline overlay (own polyline layer, above the polygons).
+      renderCoastline();
     }
 
     // Below 768px (matches this repo's own established desktop/mobile
@@ -1582,6 +1638,7 @@
         })
         .then(data => {
           fullGeoData = data;
+          cacheCoastEdges();
           geojsonLayer = buildDistrictLayer(isNationwide ? data.features : data.features.filter(f => f.properties.state === cfg.stateCode)).addTo(map);
 
           if (isNationwide) {
