@@ -254,7 +254,7 @@
       <div class="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
         <span class="w-3.5 h-3.5 rounded shrink-0" style="background:#fdfe00;border:3px dashed #2516d2"></span>Hujan + Ribut Petir
       </div>
-      <div class="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 mt-1.5">
+      <div id="coastal-legend-row" hidden class="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 mt-1.5">
         <span class="w-3.5 h-3.5 rounded shrink-0" style="background:transparent;border:3px solid #0284c7"></span>Amaran Perairan (garis pantai)
       </div>
       <div id="coastal-status" hidden class="mt-2 text-[11px] leading-relaxed text-sky-700 dark:text-sky-300 font-semibold"></div>
@@ -2135,9 +2135,13 @@
 
     // Phase 1 coastline status line — lives INSIDE #map-legend so the
     // mobile drawer (single-copy node move) carries it automatically.
-    // Clearly labelled test data when driven by ?testcoastalwarning=.
+    // Test-only: hidden unless ?testcoastalwarning= is present — live
+    // marine bulletins never paint. Clearly labelled test data.
     function renderCoastalStatus() {
       const el = document.getElementById('coastal-status');
+      const row = document.getElementById('coastal-legend-row');
+      const testMode = TEST_COASTAL_PARAM !== null;
+      if (row) row.hidden = !testMode;
       if (!el) return;
       if (isNationwide) {
         if (!nationwideCoastal || !nationwideCoastal.size) {
@@ -2201,8 +2205,9 @@
           nationwideCoastal = computeCoastalNationwide(synth, STATE_CONFIG);
           coastalWarnings = synth;
         } else {
-          nationwideCoastal = computeCoastalNationwide(nationwideActiveWarnings, STATE_CONFIG);
-          coastalWarnings = nationwideActiveWarnings;
+          // Test-only coastline: live marine bulletins never paint.
+          nationwideCoastal = new Map();
+          coastalWarnings = [];
         }
         renderCoastalStatus();
       }
@@ -2232,8 +2237,10 @@
         warningDistricts = state.districts;
         warningOverlap = state.overlap || new Set();
         warningStateTier = state.stateTier;
-        coastalWarnings = [...activeWarnings, ...(coastalFixture || [])];
-        warningCoastal = computeCoastalSingle(coastalWarnings, cfg);
+        // Test-only coastline: live marine bulletins never paint.
+        coastalWarnings = coastalFixture || [];
+        warningCoastal = coastalWarnings.length ? computeCoastalSingle(coastalWarnings, cfg)
+          : { districts: new Set(), tier: null, category: null, items: [] };
       } else {
         // Two independent sources, fetched in parallel — either failing
         // alone must not take down the other (rain proxy 404s under local
@@ -2259,8 +2266,10 @@
           warningDistricts = state.districts;
           warningOverlap = state.overlap || new Set();
           warningStateTier = state.stateTier;
-          coastalWarnings = [...activeWarnings, ...(coastalFixture || [])];
-          warningCoastal = computeCoastalSingle(coastalWarnings, cfg);
+          // Test-only coastline: live marine bulletins never paint.
+          coastalWarnings = coastalFixture || [];
+          warningCoastal = coastalWarnings.length ? computeCoastalSingle(coastalWarnings, cfg)
+            : { districts: new Set(), tier: null, category: null, items: [] };
         }
       }
 
