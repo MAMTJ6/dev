@@ -254,6 +254,10 @@
       <div class="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
         <span class="w-3.5 h-3.5 rounded shrink-0" style="background:#fdfe00;border:3px dashed #2516d2"></span>Hujan + Ribut Petir
       </div>
+      <div class="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 mt-1.5">
+        <span class="w-3.5 h-3.5 rounded shrink-0" style="background:transparent;border:3px solid #0284c7"></span>Amaran Perairan (garis pantai)
+      </div>
+      <div id="coastal-status" hidden class="mt-2 text-[11px] leading-relaxed text-sky-700 dark:text-sky-300 font-semibold"></div>
     </section>
 
     <section id="forecast-card" hidden
@@ -374,12 +378,18 @@
     let nationwidePerState = new Map();      // stateCode → summary { tier, scope, districtCount, validTo, sources } (nationwide mode)
     let nationwideActiveWarnings = [];       // raw active warning objects, both sources (nationwide mode) — feeds the bottom summary bar's bulletin text
     let activeWarnings = [];          // filtered, currently-active warning objects
+    let warningCoastal = { districts: new Set(), tier: null, category: null, items: [] }; // Phase 1 coastline (single-state)
+    let nationwideCoastal = new Map(); // stateCode → { tier, category } (Phase 1 coastline, nationwide)
+    let coastalWarnings = [];         // raw marine warnings feeding the coastal parse (test + live)
     let lastCheckedAt = null;
     let forecastToday = null;         // today's row from the forecast API, once fetched
 
     // ?testWarning= override — full syntax documented in weather-core.js.
     // Param NAME matched case-insensitively — manually-typed URLs can end
     // up with "testwarning" (e.g. mobile/TV keyboards lowercasing it).
+    // ?testcoastalwarning= — Phase 1 coastline test path (first/second/
+    // third/searise/thunder, bare = first). Separate from ?testWarning=
+    // so land fixtures stay untouched. Clearly labelled test data.
     // ?windtest — Spike A: free wind-particle overlay proof (no backend).
     // Synthetic smooth test field (CLEARLY not a forecast) through the
     // open-source leaflet-velocity renderer, lazily loaded so normal page
@@ -394,6 +404,12 @@
     const TEST_WARNING_PARAM = (function () {
       for (const [key, value] of new URLSearchParams(window.location.search)) {
         if (key.toLowerCase() === 'testwarning') return value;
+      }
+      return null;
+    })();
+    const TEST_COASTAL_PARAM = (function () {
+      for (const [key, value] of new URLSearchParams(window.location.search)) {
+        if (key.toLowerCase() === 'testcoastalwarning') return value === null ? '' : value;
       }
       return null;
     })();
@@ -994,6 +1010,15 @@
           ],
         },
         {
+          name: '?testcoastalwarning=',
+          desc: 'Fasa 1 perairan: garis pantai sahaja, tiada isian (data ujian, bukan amaran sebenar). Nilai: first/second/third/searise/thunder (kosong = first).',
+          examples: [
+            '?state=pahang&testcoastalwarning',
+            '?state=kelantan&testcoastalwarning=third',
+            '?state=malaysia&testcoastalwarning=first',
+          ],
+        },
+        {
           name: '?raw',
           desc: 'Papar respons API mentah (belum diproses) bagi amaran/hujan/ramalan.',
           examples: ['?raw', '?state=pahang&district=Temerloh&raw'],
@@ -1131,6 +1156,39 @@
     function overlapStyle(tier, weight) {
       return { ...districtWarningStyle(tier), color: '#2516d2', weight, dashArray: '6 4' };
     }
+    // Phase 1 coastline paint: stroke-only, zero fill — never reads as a
+    // land warning. Border takes the tier hue (third=red, second=orange,
+    // first=yellow, thunderstorm-over-waters=blue). Land fill always wins
+    // when both apply; this only paints coastal districts with NO land tier.
+    function coastalStyle(tier, weight) {
+      const c = TIER_COLORS[tier] || TIER_COLORS.amaran;
+      return { fillColor: '#ffffff', fillOpacity: 0, color: c.fill, weight, opacity: 1 };
+    }
+    const MARINE_CATEGORY_LABEL = { first: 'Kategori Pertama', second: 'Kategori Kedua', third: 'Kategori Ketiga', searise: 'Kenaikan Paras Laut', thunderstorm: 'Ribut Petir di Perairan' };
+    // Phase 1 coastal compute — single-state: highest marine tier across
+    // all warnings whose SECTION A names this state's waters. Land parsing
+    // is untouched; this runs alongside computeWarningState, never inside it.
+    function computeCoastalSingle(warnings, activeCfg) {
+      let best = null;
+      (warnings || []).forEach(w => {
+        if (!isWarningActive(w)) return;
+        const p = parseMarineForState(w.text_en, w.text_bm, activeCfg);
+        if (!p || p.scope !== 'coastal') return;
+        if (!best || TIER_RANK[p.tier] > TIER_RANK[best.tier]) best = p;
+      });
+      if (!best) return { districts: new Set(), tier: null, category: null, items: [] };
+      return { districts: new Set(best.districts), tier: best.tier, category: best.category, items: best.items };
+    }
+    // Nationwide twin: per-state best marine tier from the same unfiltered
+    // batch computeWarningStateNationwide() already loops in memory.
+    function computeCoastalNationwide(warnings, allStates) {
+      const out = new Map();
+      Object.values(allStates || {}).filter(s => s.apiName && s.stateCode).forEach(stateCfg => {
+        const single = computeCoastalSingle(warnings, stateCfg);
+        if (single.tier) out.set(stateCfg.stateCode, { tier: single.tier, category: single.category });
+      });
+      return out;
+    }
     function baseStyle(feature) {
       const name = feature.properties.name;
 
@@ -1145,6 +1203,9 @@
         // only one state's polygons were ever on screen).
         const wash = nationwideStateWash.get(feature.properties.state);
         if (wash) return { ...stateWarningStyle(wash), color: '#8a8a8a', weight: NATIONWIDE_DISTRICT_WEIGHT };
+        // Phase 1 coastline nationwide: stroke-only per-state coastal tier.
+        const coast = nationwideCoastal.get(feature.properties.state);
+        if (coast) return coastalStyle(coast.tier, 3);
         return { ...PAGE_DEFAULT_STYLE, weight: NATIONWIDE_DISTRICT_WEIGHT };
       }
 
@@ -1155,6 +1216,9 @@
       if (tier && warningOverlap.has(name)) return overlapStyle(tier, 5);
       if (tier) return { ...districtWarningStyle(tier), color: '#8a8a8a', weight: 2 };
       if (warningScope === 'state') return { ...stateWarningStyle(warningStateTier), color: '#8a8a8a', weight: 2 };
+      // Phase 1 coastline: stroke-only on coastal districts with no land
+      // warning — land fill always wins above, so this never hides land.
+      if (warningCoastal.districts.has(name)) return coastalStyle(warningCoastal.tier, 4);
       return PAGE_DEFAULT_STYLE;
     }
 
@@ -1192,6 +1256,14 @@
       if (overlap && overlap.size) {
         geojsonLayer.eachLayer(layer => {
           if (overlap.has(layer.feature.properties.name)) layer.bringToFront();
+        });
+      }
+      // Coastal outlines to the front too — stroke-only (fillOpacity 0)
+      // needs to sit above grey neighbours to read as a coastline.
+      const coastSet = isNationwide ? null : warningCoastal.districts;
+      if (coastSet && coastSet.size) {
+        geojsonLayer.eachLayer(layer => {
+          if (coastSet.has(layer.feature.properties.name)) layer.bringToFront();
         });
       }
     }
@@ -1604,6 +1676,9 @@
       warningOverlap = new Set();
       warningScope = null;
       warningStateTier = null;
+      warningCoastal = { districts: new Set(), tier: null, category: null, items: [] };
+      nationwideCoastal = new Map();
+      coastalWarnings = [];
       nationwideDistrictTiers = new Map();
       nationwideOverlap = new Set();
       nationwideStateWash = new Map();
@@ -2040,6 +2115,35 @@
       }
     }
 
+    // Phase 1 coastline status line — lives INSIDE #map-legend so the
+    // mobile drawer (single-copy node move) carries it automatically.
+    // Clearly labelled test data when driven by ?testcoastalwarning=.
+    function renderCoastalStatus() {
+      const el = document.getElementById('coastal-status');
+      if (!el) return;
+      if (isNationwide) {
+        if (!nationwideCoastal || !nationwideCoastal.size) {
+          el.hidden = true;
+          el.textContent = '';
+          return;
+        }
+        const parts = [...nationwideCoastal.entries()].map(([code, v]) => {
+          const name = Object.values(STATE_CONFIG).find(s => s.stateCode === code)?.displayName || code;
+          return `${name} (${MARINE_CATEGORY_LABEL[v.category] || v.category})`;
+        });
+        el.hidden = false;
+        el.textContent = `🌊 Perairan: ${parts.join(' • ')}${TEST_COASTAL_PARAM !== null ? ' (data ujian)' : ''}`;
+        return;
+      }
+      if (!warningCoastal.tier) {
+        el.hidden = true;
+        el.textContent = '';
+        return;
+      }
+      el.hidden = false;
+      el.textContent = `🌊 Perairan ${cfg.displayName}: ${MARINE_CATEGORY_LABEL[warningCoastal.category] || warningCoastal.category}${TEST_COASTAL_PARAM !== null ? ' (data ujian, bukan amaran sebenar)' : ''}`;
+    }
+
     // Nationwide mode: one thunderstorm fetch (buildWarningApiUrl omits
     // contains= when cfg.apiName is null, see weather-core.js) + one rain
     // fetch (fetchRainWarningsRaw — the proxy was already unfiltered),
@@ -2068,6 +2172,21 @@
         nationwideStateWash = state.stateWash;
         nationwidePerState = state.perState;
         nationwideActiveWarnings = combined.filter(isWarningActive);
+        // Phase 1 coastline nationwide — same unfiltered batch; test param
+        // builds one synthetic marine warning per coastal state.
+        if (TEST_COASTAL_PARAM !== null) {
+          const synth = [];
+          Object.values(STATE_CONFIG).filter(s => s.apiName && s.stateCode && s.coastal && s.coastal.length).forEach(s => {
+            const f = getTestCoastalFixture(TEST_COASTAL_PARAM || 'first', s);
+            if (f) synth.push(...f);
+          });
+          nationwideCoastal = computeCoastalNationwide(synth, STATE_CONFIG);
+          coastalWarnings = synth;
+        } else {
+          nationwideCoastal = computeCoastalNationwide(nationwideActiveWarnings, STATE_CONFIG);
+          coastalWarnings = nationwideActiveWarnings;
+        }
+        renderCoastalStatus();
       }
     }
 
@@ -2085,6 +2204,9 @@
       }
 
       const fixture = getTestWarningFixture(TEST_WARNING_PARAM, cfg);
+      // Phase 1 coastline source: live thunder batch (marine bulletins ride
+      // along in it) plus the ?testcoastalwarning= synthetic when present.
+      const coastalFixture = TEST_COASTAL_PARAM !== null ? getTestCoastalFixture(TEST_COASTAL_PARAM || 'first', cfg) : undefined;
       if (fixture !== undefined) {
         activeWarnings = fixture.filter(isWarningActive);
         const state = computeWarningState(activeWarnings, cfg);
@@ -2092,6 +2214,8 @@
         warningDistricts = state.districts;
         warningOverlap = state.overlap || new Set();
         warningStateTier = state.stateTier;
+        coastalWarnings = [...activeWarnings, ...(coastalFixture || [])];
+        warningCoastal = computeCoastalSingle(coastalWarnings, cfg);
       } else {
         // Two independent sources, fetched in parallel — either failing
         // alone must not take down the other (rain proxy 404s under local
@@ -2117,11 +2241,14 @@
           warningDistricts = state.districts;
           warningOverlap = state.overlap || new Set();
           warningStateTier = state.stateTier;
+          coastalWarnings = [...activeWarnings, ...(coastalFixture || [])];
+          warningCoastal = computeCoastalSingle(coastalWarnings, cfg);
         }
       }
 
       repaintMap();
       renderCards();
+      renderCoastalStatus();
       applyForecastWarningAccent();
       updateFooter();
     }
@@ -2314,10 +2441,13 @@
     }
 
     function initTestModeBanner() {
-      if (!TEST_WARNING_PARAM) return;
+      const parts = [];
+      if (TEST_WARNING_PARAM) parts.push(`testWarning=${TEST_WARNING_PARAM}`);
+      if (TEST_COASTAL_PARAM !== null) parts.push(`testcoastalwarning=${TEST_COASTAL_PARAM || '(ujian perairan)'}`);
+      if (!parts.length) return;
       const el = document.getElementById('test-mode-banner');
       el.hidden = false;
-      el.textContent = `🧪 MOD UJIAN AKTIF — testWarning=${TEST_WARNING_PARAM} (data ujian, bukan amaran sebenar)`;
+      el.textContent = `🧪 MOD UJIAN AKTIF — ${parts.join(' + ')} (data ujian, bukan amaran sebenar)`;
     }
 
     // ?windtest Spike A — free particle proof with ZERO backend. A small

@@ -184,6 +184,62 @@ function isMarineBulletin(warning) {
     /\bperairan\b/i.test(warning.text_bm || '');
 }
 
+// ---------------------------------------------------------------------
+// Phase 1 coastline warnings — SECTION A only ("FOR MALAYSIAN WATERS
+// [WITHIN 24 NAUTICAL MILES]"). SECTION B ("FOR SHIPPING") names
+// offshore blocks (Condore, Reef North, ...) with no district geometry
+// — Phase 2, not handled here.
+//
+// Returns { scope:'coastal', districts, tier, category, items } or
+// { scope:null, ... } when SECTION A never names this state's waters.
+// `districts` is cfg.coastal (fallback: all cfg.districts) — the render
+// layer paints these stroke-only, zero fill. Category → tier mapping
+// reuses the land ladder so the legend stays one scale:
+//   THIRD → bahaya, SECOND → buruk, FIRST / SEA RISE → waspada,
+//   THUNDERSTORMS over waters → amaran. Highest wins per state.
+// ---------------------------------------------------------------------
+const MARINE_CATEGORY_TIER = { third: 'bahaya', second: 'buruk', first: 'waspada', searise: 'waspada', thunderstorm: 'amaran' };
+
+function marineItemCategory(item) {
+  if (/sea\s*level\s*rise/i.test(item)) return 'searise';
+  if (/thunderstorms?\s+warning/i.test(item)) return 'thunderstorm';
+  if (/third\s+category/i.test(item)) return 'third';
+  if (/second\s+category/i.test(item)) return 'second';
+  if (/first\s+category/i.test(item)) return 'first';
+  return null;
+}
+
+function parseMarineForState(textEn, textBm, cfg) {
+  if (!cfg || !cfg.apiName) return { scope: null, districts: [], tier: null, category: null, items: [] };
+  const text = String(textEn || textBm || '');
+  if (!text) return { scope: null, districts: [], tier: null, category: null, items: [] };
+  // SECTION A only — cut before SECTION B (shipping/offshore blocks).
+  const aPart = text.split(/SECTION\s+B\s*:|SEKSYEN\s+B\s*:/i)[0];
+  if (!/for\s+malaysian\s+waters|within\s+24\s+nautical\s+miles/i.test(aPart)) {
+    // No explicit SECTION A header (fixture or short bulletin) — still
+    // allow a plain "waters of X" match rather than dropping it.
+    if (!/\bwaters?\s+of\b/i.test(aPart) && !/\bperairan\b/i.test(String(textBm || ''))) {
+      return { scope: null, districts: [], tier: null, category: null, items: [] };
+    }
+  }
+  const items = splitBulletinItems(aPart);
+  const bareRe = new RegExp('\\b' + escapeRegExp(cfg.apiName) + '\\b', 'i');
+  const hits = [];
+  items.forEach(item => {
+    if (!bareRe.test(item)) return;
+    if (!/\bwaters?\s+of\b/i.test(item) && !/\bperairan\b/i.test(item)) return;
+    const cat = marineItemCategory(item);
+    if (!cat) return;
+    hits.push({ category: cat, tier: MARINE_CATEGORY_TIER[cat], text: item.trim().slice(0, 280) });
+  });
+  if (!hits.length) return { scope: null, districts: [], tier: null, category: null, items: [] };
+  let best = hits[0];
+  hits.forEach(h => { if (TIER_RANK[h.tier] > TIER_RANK[best.tier]) best = h; });
+  const coastal = (cfg.coastal && cfg.coastal.length ? cfg.coastal : cfg.districts.slice())
+    .filter(d => (cfg.districts || []).includes(d));
+  return { scope: 'coastal', districts: coastal, tier: best.tier, category: best.category, items: hits };
+}
+
 // Parses one warning object into a district-level hit list, a state-wide
 // land scope, a marine-only scope (no land districts highlighted, but
 // still worth showing in the banner), or "not affected" (scope: null).
@@ -1003,4 +1059,46 @@ function getTestWarningFixture(param, cfg) {
 
   console.warn('[weather] Unknown ?testWarning= value, falling back to live API:', param);
   return undefined;
+}
+
+// ---------------------------------------------------------------------
+// ?testcoastalwarning= fixture — Phase 1 coastline test path, separate
+// from ?testWarning= so land fixtures stay untouched. Values:
+//   (empty) / 1 / first   — FIRST CATEGORY over active state's waters
+//   second / third        — SECOND / THIRD CATEGORY
+//   searise               — SEA LEVEL RISE over active state's waters
+//   thunder               — THUNDERSTORMS over active state's waters
+// Builds a real data.gov.my-shaped warning through the SAME
+// parseMarineForState() path as live data — never bypasses parsing.
+// ---------------------------------------------------------------------
+function getTestCoastalFixture(param, cfg) {
+  if (param === undefined || param === null) return undefined;
+  const v = String(param).trim().toLowerCase();
+  // Bare ?testcoastalwarning (empty value) means FIRST CATEGORY.
+  const kind = (!v || v === '1' || v === 'true') ? 'first' : v;
+  const CAT = {
+    first: { head: 'FIRST CATEGORY WARNING ON STRONG WINDS AND ROUGH SEAS', body: 'Strong easterly winds of 40 - 50 kmph with wave height up to 3.5 metres are expected' },
+    second: { head: 'SECOND CATEGORY WARNING ON STRONG WINDS AND ROUGH SEAS', body: 'Strong northeasterly winds of 50 - 60 kmph with wave height up to 4.5 metres are expected' },
+    third: { head: 'THIRD CATEGORY WARNING ON STRONG WINDS AND ROUGH SEAS', body: 'Strong northeasterly winds over 60 kmph with waves exceeding 4.5 metres are expected' },
+    searise: { head: 'WARNING ON SEA LEVEL RISE', body: 'Sea level rise is expected' },
+    thunder: { head: 'THUNDERSTORMS WARNING', body: 'Thunderstorms, heavy rain and strong winds are expected' },
+  };
+  if (!CAT[kind]) {
+    console.warn('[weather] Unknown ?testcoastalwarning= value, falling back to live API:', param);
+    return undefined;
+  }
+  const now = new Date();
+  const c = CAT[kind];
+  const textEn = `SECTION A: FOR MALAYSIAN WATERS [WITHIN 24 NAUTICAL MILES]\n1) ${c.head}\n${c.body} over the waters of ${cfg.apiName} until 9:00 PM; (TEST DATA).\nSECTION B: FOR SHIPPING\n1) THUNDERSTORMS WARNING\nThunderstorms are expected over the waters of Condore until 9:00 PM; (TEST DATA, must be ignored by Phase 1).`;
+  const textBm = `SEKSYEN A: UNTUK PERAIRAN MALAYSIA [DALAM 24 BATU NAUTIKA]\n1) ${c.head}\n${c.body} di kawasan perairan ${cfg.apiName} sehingga 9:00 malam; (DATA UJIAN).\nSEKSYEN B: UNTUK PERKAPALAN\n1) THUNDERSTORMS WARNING\nThunderstorms are expected over the waters of Condore until 9:00 PM; (DATA UJIAN, mesti diabaikan oleh Fasa 1).`;
+  return [{
+    warning_issue: { issued: now.toISOString(), title_en: c.head, title_bm: c.head },
+    valid_from: now.toISOString(),
+    valid_to: new Date(now.getTime() + 3600000).toISOString(),
+    heading_en: c.head + ' (TEST)',
+    heading_bm: c.head + ' (UJIAN)',
+    text_en: textEn,
+    text_bm: textBm,
+    instruction_bm: 'Ini adalah data ujian dari ?testcoastalwarning=, bukan amaran sebenar.',
+  }];
 }
