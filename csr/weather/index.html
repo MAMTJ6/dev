@@ -255,7 +255,7 @@
         <span class="w-3.5 h-3.5 rounded shrink-0" style="background:#fdfe00;border:3px dashed #2516d2"></span>Hujan + Ribut Petir
       </div>
       <div id="coastal-legend-row" hidden class="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 mt-1.5">
-        <span id="coastal-legend-swatch" class="w-3.5 h-3.5 rounded shrink-0" style="background:transparent;border:3px solid #0284c7"></span>Amaran Perairan (garis pantai)
+        <span id="coastal-legend-swatch" class="w-3.5 h-3.5 rounded shrink-0" style="background:transparent;border:4px solid #0284c7"></span>Amaran Perairan (garis pantai)
       </div>
       <div id="coastal-status" hidden class="mt-2 text-[11px] leading-relaxed text-sky-700 dark:text-sky-300 font-semibold"></div>
     </section>
@@ -1191,7 +1191,7 @@
       const collect = (names, tier) => {
         const feats = [];
         fullGeoData.features.forEach(f => { if (names.has(f.properties.name)) feats.push(f); });
-        if (feats.length) groups.push({ feats, tier, weight: isNationwide ? 3 : 4 });
+        if (feats.length) groups.push({ feats, tier, weight: isNationwide ? 5 : 7 });
       };
       if (isNationwide) {
         if (nationwideCoastal && nationwideCoastal.size && STATE_CONFIG) {
