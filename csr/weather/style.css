@@ -247,8 +247,19 @@ html.light .forecast-slot .slot-icon .wicon {
     animation: coast-halo-pulse 2.6s ease-in-out infinite;
 }
 
+/* Core breathes on the same 2.6s clock so halo + line pulse as one. */
+@keyframes coast-core-pulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
+.coast-core {
+    animation: coast-core-pulse 2.6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .coast-halo { animation: none; }
+    .coast-core { animation: none; }
 }
 
 /* ------------------------------------------------------------------ */
