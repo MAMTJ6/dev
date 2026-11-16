@@ -83,6 +83,17 @@ html.light #map.leaflet-container {
     font-size: 0.8em;
 }
 
+/* Selected district's label — dark pill so the pick is named on the map
+   itself. Neutral charcoal, never a warning-tier colour, reads on both
+   basemaps with no dark: variant. */
+.leaflet-tooltip.district-label-pill.selected-district {
+    background: rgba(17, 24, 39, 0.85);
+    border-radius: 999px;
+    padding: 2px 10px;
+    color: #fff;
+    text-shadow: none;
+}
+
 /* This class's own layout classes (flex/block) otherwise beat the
    browser's built-in [hidden]{display:none} rule at equal specificity —
    without this, el.hidden = true left an empty, content-less box on

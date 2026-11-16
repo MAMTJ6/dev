@@ -43,7 +43,7 @@
        ?v= cache-buster — bump it on every style.css change so phones
        drop their cached copy immediately instead of sitting on stale
        CSS (Chrome Android caches the query-less URL aggressively). -->
-  <link rel="stylesheet" href="/csr/weather/style.css?v=5" />
+  <link rel="stylesheet" href="/csr/weather/style.css?v=6" />
 </head>
 
 <body class="font-sans antialiased bg-zinc-50 dark:bg-zinc-950 text-zinc-950 dark:text-zinc-50">
@@ -2082,25 +2082,60 @@
       return PAGE_DEFAULT_STYLE;
     }
 
-    // Dropdown "jump to district" selection — a separate yellow halo layer
-    // drawn behind the district's own path, so its real border (grey, or
-    // whatever warning colour baseStyle() gave it) stays fully visible on
-    // top and only the extra width of the halo peeks out around it.
-    const SELECTION_HALO_STYLE = {
-      color: '#facc15',
-      weight: 8,
+    // District selection — a NEUTRAL double outline (white casing + dark
+    // dash) drawn behind the district's own path. Deliberately NOT a
+    // warning colour: the old yellow halo was exactly waspada yellow and
+    // read as a warning, and red would read as bahaya. The district's
+    // real border (grey, or its warning-tier colour) stays on top via
+    // bringToFront(); only the extra width peeks out around it.
+    const SELECTION_CASING_STYLE = {
+      color: '#ffffff',
+      weight: 10,
+      opacity: 0.95,
+      fill: false,
+      interactive: false
+    };
+    const SELECTION_DASH_STYLE = {
+      color: '#1c1a16',
+      weight: 5,
       opacity: 1,
+      dashArray: '6 4',
       fill: false,
       interactive: false
     };
 
-    let selectionHaloLayer = null;
+    let selectionOutlineLayers = [];
 
     function clearSelectionHalo() {
-      if (selectionHaloLayer) {
-        map.removeLayer(selectionHaloLayer);
-        selectionHaloLayer = null;
-      }
+      selectionOutlineLayers.forEach(l => map.removeLayer(l));
+      selectionOutlineLayers = [];
+      clearSelectedLabel();
+    }
+
+    // The selected district's map label gets a dark pill so the pick is
+    // named on the map itself — same text, extra class, so
+    // declutterDistrictLabels()'s textContent matching keeps working.
+    function clearSelectedLabel() {
+      document.querySelectorAll('.leaflet-tooltip.district-label-pill.selected-district')
+        .forEach(el => el.classList.remove('selected-district'));
+    }
+
+    function refreshSelectedLabel(name) {
+      clearSelectedLabel();
+      if (!name || !geojsonLayer) return;
+      geojsonLayer.eachLayer(layer => {
+        if (layer.feature.properties.name !== name) return;
+        const tip = layer.getTooltip && layer.getTooltip();
+        if (tip) {
+          const el = tip.getElement && tip.getElement();
+          if (el) el.classList.add('selected-district');
+        } else {
+          layer.openTooltip();
+          const t2 = layer.getTooltip && layer.getTooltip();
+          const el2 = t2 && t2.getElement && t2.getElement();
+          if (el2) el2.classList.add('selected-district');
+        }
+      });
     }
 
     function repaintMap() {
@@ -2245,6 +2280,9 @@
           bindNationwideHoverTooltip(layer, feature);
         }
       });
+      // Rebinding drops tooltip elements (and the selected class with
+      // them) — restore the selected district's pill after a mode flip.
+      refreshSelectedLabel(focusDistrict);
     }
 
     // Black reads fine on the light basemap but disappears against the
@@ -2564,9 +2602,13 @@
       geojsonLayer.eachLayer(function (layer) {
         if (layer.feature.properties.name === name) {
           clearSelectionHalo();
-          selectionHaloLayer = L.geoJSON(layer.feature, { style: SELECTION_HALO_STYLE }).addTo(map);
+          selectionOutlineLayers = [
+            L.geoJSON(layer.feature, { style: SELECTION_CASING_STYLE }).addTo(map),
+            L.geoJSON(layer.feature, { style: SELECTION_DASH_STYLE }).addTo(map),
+          ];
           geojsonLayer.resetStyle(layer);
           layer.bringToFront();
+          refreshSelectedLabel(name);
           // No auto-zoom anywhere by design: a district pick updates the
           // halo + forecast card only, never reframes the map — the state
           // view holds until the viewer pans/zooms manually.
