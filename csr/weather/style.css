@@ -366,6 +366,15 @@ html.light .forecast-slot .slot-icon .wicon {
     }
 }
 
+/* Model section is mobile-redesign only — desktop keeps the original
+   forecast + two MET warning cards, so the card can never show at
+   desktop widths even mid-fetch. */
+@media (min-width: 768px) {
+    #model-card {
+        display: none !important;
+    }
+}
+
 /* ------------------------------------------------------------------ */
 /* Mobile layout (<768px) — desktop above this width is untouched.     */
 /* #map stays the same full-viewport fixed background it already is;  */
