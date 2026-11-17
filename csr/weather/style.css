@@ -104,7 +104,29 @@ html.light #map.leaflet-container {
 #forecast-card[hidden],
 #forecast-warn-badge[hidden],
 #location-popover[hidden],
+#met-lightbox[hidden],
 #page-footer[hidden] {
+    display: none !important;
+}
+
+/* ?signage TV kiosk mode — every interactive surface hidden. Read-only
+   survivors: header title + clock, map, legend, nationwide summary bar.
+   Per-state cards / forecast / model self-hide (nationwide has no
+   district focus); the export button never initialises in signage. */
+html.signage #location-toggle,
+html.signage #location-popover,
+html.signage #theme-toggle,
+html.signage #menu-toggle,
+html.signage #export-btn,
+html.signage #m-status-card,
+html.signage #m-toolbar,
+html.signage #m-bottomnav,
+html.signage #mobile-drawer,
+html.signage #drawer-backdrop,
+html.signage #sheet-handle,
+html.signage #m-location-sheet,
+html.signage #m-location-backdrop,
+html.signage #m-warn-popup {
     display: none !important;
 }
 

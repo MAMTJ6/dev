@@ -43,7 +43,7 @@
        ?v= cache-buster — bump it on every style.css change so phones
        drop their cached copy immediately instead of sitting on stale
        CSS (Chrome Android caches the query-less URL aggressively). -->
-  <link rel="stylesheet" href="/csr/weather/style.css?v=7" />
+  <link rel="stylesheet" href="/csr/weather/style.css?v=9" />
 </head>
 
 <body class="font-sans antialiased bg-zinc-50 dark:bg-zinc-950 text-zinc-950 dark:text-zinc-50">
@@ -344,6 +344,16 @@
     class="fixed top-16 left-1/2 -translate-x-1/2 z-[1100] rounded-lg border-2 border-dashed border-red-500 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400 shadow-lg">
   </div>
 
+  <!-- MET image lightbox — persistent static node (never re-rendered),
+       topmost overlay. Filled + shown by the delegated .met-img-zoom
+       click handler; backdrop / ✕ / Esc closes. -->
+  <div id="met-lightbox" hidden
+    class="fixed inset-0 z-[1400] flex items-center justify-center bg-black/85 p-4">
+    <button id="met-lightbox-close" type="button" aria-label="Tutup imej"
+      class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/15 text-white text-xl leading-none backdrop-blur-sm">×</button>
+    <img id="met-lightbox-img" src="" alt="" class="max-w-[94vw] max-h-[90vh] rounded-lg shadow-2xl" />
+  </div>
+
   <footer id="page-footer"
     class="fixed bottom-2 left-1/2 -translate-x-1/2 z-[900] flex gap-3 text-xs text-zinc-500 dark:text-zinc-400">
     <span id="footer-source">Sumber data: MET Malaysia / data.gov.my</span>
@@ -597,6 +607,12 @@
     // ?export — gated PNG export of the live map (test feature for now).
     // The export button only appears with ?export in the URL.
     const EXPORT_PARAM = new URLSearchParams(window.location.search).has('export');
+
+    // ?signage — TV kiosk mode: defaults to Malaysia but ?state= /
+    // ?district= pin any view. Interactive surfaces hide via html.signage
+    // (see style.css), map locked non-interactive, nightly reload.
+    // paparan/ stays untouched as fallback until the TV box is repointed.
+    const SIGNAGE_PARAM = new URLSearchParams(window.location.search).has('signage');
 
     function showStateBanner(msg) {
       const el = document.getElementById('state-error-banner');
@@ -1735,6 +1751,11 @@
           examples: ['?state=pahang&district=Temerloh'],
         },
         {
+          name: '?signage',
+          desc: 'Mod kiosk TV: lalai paparan Malaysia (?state=/ ?district= boleh pin paparan lain), sorok semua kawalan interaktif, kunci peta (tidak boleh seret/zum), muat semula automatik ~04:00. paparan/ kekal sebagai sandaran.',
+          examples: ['?signage'],
+        },
+        {
           name: '?testWarning=',
           desc: 'Ganti data amaran sebenar dengan data ujian (fixture) — tidak menyentuh rangkaian sebenar. Boleh gabung dua jenis dengan "|".',
           examples: [
@@ -2699,6 +2720,29 @@
 
     const WARN_CARD_BASE = 'rounded-xl border border-zinc-200 dark:border-zinc-700 border-l-8 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md shadow-lg p-4 shrink-0';
 
+    // MET image lightbox — one delegated listener (cards re-render via
+    // innerHTML, so per-image handlers would rot). Opens the tapped card
+    // image large; backdrop / ✕ / Esc closes. The <details> stays open
+    // behind it, so closing returns to the expanded image in place.
+    function initMetLightbox() {
+      const box = document.getElementById('met-lightbox');
+      const img = document.getElementById('met-lightbox-img');
+      if (!box || !img) return;
+      const close = () => { box.hidden = true; img.removeAttribute('src'); document.body.style.overflow = ''; };
+      document.addEventListener('click', e => {
+        const zoom = e.target.closest && e.target.closest('.met-img-zoom');
+        if (zoom && zoom.src) {
+          img.src = zoom.src;
+          img.alt = zoom.alt || 'Imej amaran MET Malaysia';
+          box.hidden = false;
+          document.body.style.overflow = 'hidden';
+          return;
+        }
+        if (!box.hidden && (e.target === box || (e.target.closest && e.target.closest('#met-lightbox-close')))) close();
+      });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape' && !box.hidden) close(); });
+    }
+
     function renderWarnCard(el, title, items, img) {
       // Expandable official MET map image, collapsed by default and
       // lazy-loaded — zero bandwidth until the viewer opens it. Shown in
@@ -2706,7 +2750,7 @@
       const imgHtml = img ? `
           <details class="mt-1 border-t border-zinc-200 dark:border-zinc-700 pt-2">
             <summary class="cursor-pointer text-sm font-semibold text-zinc-600 dark:text-zinc-300 select-none">Imej MET</summary>
-            <img src="${img.src}" alt="${escapeHtml(img.alt)}" loading="lazy" class="mt-2 w-full rounded-lg border border-zinc-200 dark:border-zinc-700" />
+            <img src="${img.src}" alt="${escapeHtml(img.alt)}" loading="lazy" class="met-img-zoom mt-2 w-full rounded-lg border border-zinc-200 dark:border-zinc-700 cursor-zoom-in" />
           </details>` : '';
       if (!items.length) {
         el.className = WARN_CARD_BASE + ' opacity-60';
@@ -3363,6 +3407,14 @@
       btn.addEventListener('click', exportMapImage);
     }
 
+    // ?signage TV kiosk mode — one class flip; every interactive surface
+    // hides via the html.signage rules in style.css, so nothing
+    // kiosk-specific leaks into the desktop selectors and nothing
+    // desktop leaks onto the TV.
+    function initSignage() {
+      document.documentElement.classList.add('signage');
+    }
+
     function initTestModeBanner() {
       const parts = [];
       if (TEST_WARNING_PARAM) parts.push(`testWarning=${TEST_WARNING_PARAM}`);
@@ -3649,6 +3701,8 @@
       }
 
       const params = new URLSearchParams(window.location.search);
+      // Signage defaults to Malaysia; an explicit ?state= pins the TV to
+      // that state instead (district via ?district= as usual).
       const stateKey = (params.get('state') || 'malaysia').toLowerCase();
       cfg = STATE_CONFIG[stateKey];
       if (!cfg) {
@@ -3672,6 +3726,8 @@
       initMobileRedesign();
       layoutMobileNodes();
       initThemeToggle();
+      initMetLightbox();
+      if (SIGNAGE_PARAM) initSignage();
       if (EXPORT_PARAM) initExportButton();
       renderClock();
       renderForecast(); // hides the forecast card immediately (no district picked yet)
@@ -3680,18 +3736,19 @@
       renderNationwidePanel();
 
       // =========================================================
-      // Initialize Map — interaction enabled (real page, not a kiosk).
+      // Initialize Map — interaction enabled on the real page; locked
+      // down in ?signage kiosk mode (no controls to drive it with).
       // The district select's fitBounds/setView calls still work
       // regardless — the viewer can then freely pan/zoom afterward.
       // =========================================================
       map = L.map('map', {
-        zoomControl: true,
-        dragging: true,
+        zoomControl: !SIGNAGE_PARAM,
+        dragging: !SIGNAGE_PARAM,
         scrollWheelZoom: false, // replaced by initStepWheelZoom() below — see its own comment for why
-        doubleClickZoom: true,
-        boxZoom: true,
-        keyboard: true,
-        touchZoom: true,
+        doubleClickZoom: !SIGNAGE_PARAM,
+        boxZoom: !SIGNAGE_PARAM,
+        keyboard: !SIGNAGE_PARAM,
+        touchZoom: !SIGNAGE_PARAM,
         zoomSnap: 0, // no rounding — needed so cfg.zoom's fractional values (e.g. Pahang's 8.7) aren't snapped to an integer
       }).setView(activeCenter() || [3.8648, 109.3107], activeZoom() || 6.4);
       // Provisional — resetMapView() (after GeoJSON loads) corrects this via
@@ -3705,7 +3762,7 @@
       map.on('zoomend', declutterDistrictLabels); // no-op in nationwide mode / before geojsonLayer exists
       map.on('moveend', declutterDistrictLabels); // re-separate labels after pans (and programmatic fitBounds)
       map.on('zoomend', restyleStateBoundary); // no-op before stateBoundaryLayer exists (single-state mode never creates one)
-      initStepWheelZoom(map);
+      if (!SIGNAGE_PARAM) initStepWheelZoom(map);
       if (WINDTEST_PARAM) initWindTest();
 
       // initTileLayer() itself is deferred to loadGeoJSON() below, once the
@@ -3752,6 +3809,13 @@
       setInterval(() => {
         renderCards();
         renderClock();
+        // Kiosk hygiene (mirrors paparan/): nobody touches the TV browser,
+        // so reload nightly to clear leaked memory. Minute-granular like
+        // paparan's own check — fires once when the 04:00 tick lands.
+        if (SIGNAGE_PARAM) {
+          const now = new Date();
+          if (now.getHours() === 4 && now.getMinutes() === 0) location.reload();
+        }
       }, TICK_MS);
     }
 
