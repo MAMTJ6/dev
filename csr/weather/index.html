@@ -2699,14 +2699,22 @@
 
     const WARN_CARD_BASE = 'rounded-xl border border-zinc-200 dark:border-zinc-700 border-l-8 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md shadow-lg p-4 shrink-0';
 
-    function renderWarnCard(el, title, items) {
+    function renderWarnCard(el, title, items, img) {
+      // Expandable official MET map image, collapsed by default and
+      // lazy-loaded — zero bandwidth until the viewer opens it. Shown in
+      // both the active and the empty ("Tiada …") states.
+      const imgHtml = img ? `
+          <details class="mt-1 border-t border-zinc-200 dark:border-zinc-700 pt-2">
+            <summary class="cursor-pointer text-sm font-semibold text-zinc-600 dark:text-zinc-300 select-none">Imej MET</summary>
+            <img src="${img.src}" alt="${escapeHtml(img.alt)}" loading="lazy" class="mt-2 w-full rounded-lg border border-zinc-200 dark:border-zinc-700" />
+          </details>` : '';
       if (!items.length) {
         el.className = WARN_CARD_BASE + ' opacity-60';
         el.style.borderLeftColor = 'transparent';
         el.innerHTML = `
           <div class="flex items-baseline gap-2.5 pb-2 border-b border-zinc-200 dark:border-zinc-700">
             <h2 class="font-display font-bold text-base text-zinc-900 dark:text-zinc-100 m-0">Tiada ${escapeHtml(title)}</h2>
-          </div>`;
+          </div>${imgHtml}`;
         return;
       }
 
@@ -2777,7 +2785,7 @@
           </div>
           <div class="text-sm font-medium text-zinc-500 dark:text-zinc-400 mt-0.5">Dikeluarkan ${escapeHtml(issuedShort)}${issuedRel ? ` · <span class="font-semibold text-zinc-900 dark:text-zinc-100">${escapeHtml(issuedRel)}</span>` : ''}</div>
         </div>
-        ${rowsHtml}`;
+        ${rowsHtml}${imgHtml}`;
     }
 
     function renderCards() {
@@ -2812,7 +2820,7 @@
       // Thunder card: ALWAYS visible, even with zero active warnings —
       // renderWarnCard's empty branch shows "Tiada Ribut Petir / Hujan Lebat".
       thunderCard.hidden = false;
-      renderWarnCard(thunderCard, 'Ribut Petir / Hujan Lebat', land);
+      renderWarnCard(thunderCard, 'Ribut Petir / Hujan Lebat', land, { src: 'https://www.met.gov.my/data/AmaranRibutPetir.jpg', alt: 'Imej amaran ribut petir MET Malaysia' });
 
       // Rain card: hide the WHOLE card (not an empty placeholder) when
       // there's nothing to show — unlike the thunder card above.
@@ -2820,7 +2828,7 @@
         rainCard.hidden = true;
       } else {
         rainCard.hidden = false;
-        renderWarnCard(rainCard, 'Amaran Hujan Berterusan', rain);
+        renderWarnCard(rainCard, 'Amaran Hujan Berterusan', rain, { src: 'https://www.met.gov.my/data/AmaranHujanLebat.jpg', alt: 'Imej amaran hujan berterusan MET Malaysia' });
       }
 
       updateSheetHandleText();
