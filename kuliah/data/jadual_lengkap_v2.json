@@ -3,8 +3,8 @@
     "2026-11": {
       "infoJadual": {
         "tajukBulan": "BULAN NOVEMBER 2026",
-        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 12/11/2026",
-        "kemaskiniMasa": "12/11/2026, 8:31 PTG"
+        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 19/11/2026",
+        "kemaskiniMasa": "19/11/2026, 5:59 PTG"
       },
       "senaraiHari": [
         {
@@ -259,12 +259,7 @@
         },
         {
           "date": "2026-11-21",
-          "subuh": {
-            "nama_penceramah": "Ustaz Badrul Hisham",
-            "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
-            "poster_url": "/kuliah/assets/poster-kuliah/14-ust-badrul-1789184625268.jpg",
-            "square_url": null
-          },
+          "subuh": null,
           "maghrib": {
             "nama_penceramah": "Ustaz Nawawi",
             "tajuk_kuliah": "Ringkasan Riyadhus Solihin",
@@ -275,12 +270,7 @@
         },
         {
           "date": "2026-11-22",
-          "subuh": {
-            "nama_penceramah": "Ustaz Badrul Hisham",
-            "tajuk_kuliah": "Ziarah Ke Alam Barzakh",
-            "poster_url": "/kuliah/assets/poster-kuliah/14-ust-badrul-1789184625268.jpg",
-            "square_url": null
-          },
+          "subuh": null,
           "maghrib": {
             "nama_penceramah": "Sdr Ahmad Syafiq Muhaimin",
             "tajuk_kuliah": "Syamail Muhammadiah",
