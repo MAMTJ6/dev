@@ -3,8 +3,8 @@
     "2026-11": {
       "infoJadual": {
         "tajukBulan": "BULAN NOVEMBER 2026",
-        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 20/11/2026",
-        "kemaskiniMasa": "20/11/2026, 11:30 PG"
+        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 21/11/2026",
+        "kemaskiniMasa": "21/11/2026, 8:11 PG"
       },
       "senaraiHari": [
         {
@@ -358,12 +358,7 @@
             "poster_url": "/kuliah/assets/poster-kuliah/14-ust-badrul-1789184625268.jpg",
             "square_url": null
           },
-          "maghrib": {
-            "nama_penceramah": "Sdr Ahmad Syafiq Muhaimin",
-            "tajuk_kuliah": "Syamail Muhammadiah",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/20_19.-Sdr.-Syafiq.jpg",
-            "square_url": null
-          },
+          "maghrib": null,
           "cuti_umum": null
         }
       ]
