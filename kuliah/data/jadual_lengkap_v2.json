@@ -3,8 +3,8 @@
     "2026-11": {
       "infoJadual": {
         "tajukBulan": "BULAN NOVEMBER 2026",
-        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 21/11/2026",
-        "kemaskiniMasa": "21/11/2026, 8:11 PG"
+        "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 23/11/2026",
+        "kemaskiniMasa": "23/11/2026, 12:25 PTG"
       },
       "senaraiHari": [
         {
@@ -286,7 +286,8 @@
             "nama_penceramah": "Ustaz Ahmad Termizi",
             "tajuk_kuliah": "Sesi Tajwid & Talaqqi Al-Quran",
             "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/02_1.-Ustaz-Ahmad-Termizi.jpg",
-            "square_url": null
+            "square_url": null,
+            "ditangguhkan": true
           },
           "cuti_umum": null
         },
