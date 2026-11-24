@@ -162,6 +162,35 @@ async function pushJsonToGitHubIfChanged(ghHeaders, githubRepo, filePath, jsonOb
     return await putRes.json();
 }
 
+async function pingSupabaseKeepAlive() {
+    // Keep Supabase Storage project awake on Free plan (pauses after ~7d
+    // of no API traffic). Neon is touched by every publish already; this
+    // one authenticated Storage call is the only Supabase traffic this
+    // cron makes. Fail-open: never throws, never blocks the publish.
+    const url = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    if (!url || !key) {
+        console.log('supabase keepalive skipped: missing SUPABASE_URL/key env');
+        return;
+    }
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        try {
+            const res = await fetch(`${url}/storage/v1/bucket`, {
+                signal: controller.signal,
+                headers: { apikey: key, Authorization: `Bearer ${key}` },
+            });
+            await res.text().catch(() => {});
+            console.log(`supabase keepalive: ${res.status}`);
+        } finally {
+            clearTimeout(timeout);
+        }
+    } catch (e) {
+        console.error('supabase keepalive failed (non-fatal):', e.message);
+    }
+}
+
 async function publishOneTarget(target, ctx) {
     const { ghHeaders, githubRepo, settings, mytNow, actorEmail, actorName } = ctx;
     const { file, commitMessage, action } = TARGETS[target];
@@ -406,6 +435,12 @@ async function handler(req, res) {
     }
 
     const anyFailed = Object.values(results).some(r => !r.success);
+
+    // Daily cron doubles as Supabase keep-alive (see pingSupabaseKeepAlive).
+    if (req.method === 'GET') {
+        await pingSupabaseKeepAlive();
+    }
+
     return res.status(anyFailed ? 500 : 200).json({ success: !anyFailed, results });
 }
 
