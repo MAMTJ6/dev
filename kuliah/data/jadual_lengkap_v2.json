@@ -369,7 +369,7 @@
       "infoJadual": {
         "tajukBulan": "BULAN DISEMBER 2026",
         "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 25/11/2026",
-        "kemaskiniMasa": "25/11/2026, 2:15 PTG"
+        "kemaskiniMasa": "25/11/2026, 2:46 PTG"
       },
       "senaraiHari": [
         {
@@ -424,7 +424,12 @@
             "poster_url": "/kuliah/assets/poster-kuliah/14-ust-badrul-1789184625268.jpg",
             "square_url": null
           },
-          "maghrib": null,
+          "maghrib": {
+            "nama_penceramah": "Ustaz Nawawi",
+            "tajuk_kuliah": "Ringkasan Riyadhus Solihin",
+            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/16_15.-Ustaz-Nawawi.jpg",
+            "square_url": null
+          },
           "cuti_umum": null
         },
         {
@@ -490,12 +495,7 @@
         {
           "date": "2026-12-11",
           "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "Ustaz Muhammad Fathmi",
-            "tajuk_kuliah": "Syarah Hadis 40 Imam Nawawi",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/11_10.-Ustaz-Fathmi.jpg",
-            "square_url": null
-          },
+          "maghrib": null,
           "cuti_umum": null
         },
         {
@@ -506,12 +506,7 @@
             "poster_url": "/kuliah/assets/poster-kuliah/14-ust-badrul-1789184625268.jpg",
             "square_url": null
           },
-          "maghrib": {
-            "nama_penceramah": "Ustaz Nawawi",
-            "tajuk_kuliah": "Ringkasan Riyadhus Solihin",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/16_15.-Ustaz-Nawawi.jpg",
-            "square_url": null
-          },
+          "maghrib": null,
           "cuti_umum": null
         },
         {
@@ -593,12 +588,7 @@
             "poster_url": "/kuliah/assets/poster-kuliah/14-ust-badrul-1789184625268.jpg",
             "square_url": null
           },
-          "maghrib": {
-            "nama_penceramah": "Ustaz Nawawi",
-            "tajuk_kuliah": "Ringkasan Riyadhus Solihin",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/16_15.-Ustaz-Nawawi.jpg",
-            "square_url": null
-          },
+          "maghrib": null,
           "cuti_umum": null
         },
         {
