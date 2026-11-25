@@ -369,7 +369,7 @@
       "infoJadual": {
         "tajukBulan": "BULAN DISEMBER 2026",
         "tarikhKemasKini": "*Dikemaskini oleh Biro Dakwah pada 25/11/2026",
-        "kemaskiniMasa": "25/11/2026, 2:46 PTG"
+        "kemaskiniMasa": "25/11/2026, 5:17 PTG"
       },
       "senaraiHari": [
         {
@@ -473,12 +473,7 @@
         {
           "date": "2026-12-09",
           "subuh": null,
-          "maghrib": {
-            "nama_penceramah": "YAA Dato' Sri Haji Abdul Rahman",
-            "tajuk_kuliah": "Fekah Kesihatan Dalam Ibadah Dan Sunnah Nabi",
-            "poster_url": "https://dev.mamtj6.com/kuliah/assets/poster-kuliah/1920X1080/18_17.-YAA-Dato-Seri-Haji-Abdul-Rahman-bin-Md-Yunos.jpg",
-            "square_url": null
-          },
+          "maghrib": null,
           "cuti_umum": null
         },
         {
