@@ -1,6 +1,6 @@
 # DEV NOTES — admin
 
-_Last updated: 2026-10-24 | For next-context-window Claude_
+_Last updated: 2026-11-25 | For next-context-window Claude_
 
 **ARCHIVE SPLIT NOTICE (2026-07-25):** this file was compacted for token cost — SESSION HISTORY below is now **summary-only** (2-4 sentences per session), and the full function-level build log for every session lives in `admin/DEV_NOTES_ARCHIVE.md` instead (never read by default, only on demand). This was a deliberate, user-requested trade: an Explore/Plan agent audit confirmed every cross-reference to a specific session number, in this file and every other `admin/*.md` doc, resolves through THE VIBE's narrative or a fact already independently restated in CRITICAL PATTERNS/CURRENT STATE — never through SESSION HISTORY's detailed build-log text — so nothing was lost by moving it out. **Going forward, keep it this way**: write each new session's SESSION HISTORY entry here as a short summary ending in `*(full detail: admin/DEV_NOTES_ARCHIVE.md)*`, and append the actual function-level detail as a new `## Session N` section at the end of `DEV_NOTES_ARCHIVE.md` — don't let full build logs creep back into this file, or the size just grows back over the next several sessions.
 
@@ -194,7 +194,18 @@ Admin edits schedule in admin/kuliah/jadual.html
 4. **Energy: fast Malay-language loop, user testing live between turns ("ok dah test dan ok" = full sign-off, same weight as session-4's "ok good").** Commits `6adb9d2` (upload → Supabase Storage) + `74cb7d2` (preserve URLs) + 2 stale-comment fixes (`ustaz.js`, `pengumuman.js`), each pushed after an explicit "need to deploy to commit?" confirmation — the session-17 commit-vs-push distinction held without needing to re-ask. Note the environment quirk from sessions 21/22 biting again: `git ... && ...` is a ParserError on this Windows box, and the push needed a `git pull --rebase` first (remote had moved).
 5. **Load-bearing doc consequences for the next you — don't skip these:** (a) `TODO-NEON.md`'s "REMAINING: delete `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` envs" instruction (root file, out of admin/ scope so not edited here) is now **reversed** — those vars are required again for Storage-only uploads. (b) Old GitHub-repo poster paths (`/kuliah/assets/...`) stay valid — never delete those files. (c) `admin/developer.md`'s Auth-flow/publish-env sections and `admin/database.md` §§1-4 still describe the pre-Neon Supabase era (predates this session; header note added to `database.md`, full rewrite flagged open, not done here). (d) `admin/README.md` still intentionally absent (session-12 precedent holds).
 
+**Update from session 25 (2026-11-25) — Supabase Storage pause → keep-alive via the daily news cron. Short infra session, no admin UI touched:** user reported Supabase paused; established the new Storage-only project is the one that matters (DB lives on Neon, old Supabase DB project can stay paused). Rejected the Reddit `pg_cron` self-ping (internal `PERFORM 1` is a no-op, runs inside the same compute that pauses — chicken-and-egg — plus `api/publish-news.js` reads Neon, so the daily cron generated zero Supabase traffic before this). Built: `pingSupabaseKeepAlive()` in `api/publish-news.js` (one authenticated `GET /storage/v1/bucket`, fail-open, cron-GET path only) — commit `7891736`, pushed clean after `git pull --rebase`. User restored the project + confirmed Vercel envs, then verified live via Vercel Logs (`supabase keepalive: 200` on a manual cron trigger). Energy: simple-explanation gear — user asked "explain in simple way" twice, terse confirmations after ("done", "yes", "ok go", "commit all and push"). Standing notes re-confirmed: no `&&` in PowerShell, Free logs keep 1h only (verify inside the window or trigger manually), Legacy Cron still Active but Vercel flags it deprecated.
+
 ## SESSION HISTORY
+
+### Session 25 (2026-11-25 — Supabase Storage keep-alive via daily `publish-news` cron)
+
+Daily 4am cron (`GET /api/publish-news`) now ends with one authenticated Supabase Storage call so the Free project never hits 7d idle. Fail-open: missing env logs `skipped`, ping failure logs non-fatal, publish unaffected. Verified: manual cron trigger → `supabase keepalive: 200` in Vercel Logs (Last 30 min). Commit `7891736` (`api/publish-news.js` +35), deployed via `main` auto-deploy. No changelog entry (background-only, no UI change). Open: none — leave cron Active; optional persistent proof (ping result into `news_activity_log`) deferred, needs Build agent.
+
+**Bugs found & lessons for the next self (admin/ scope):**
+- **`pg_cron` self-ping can't wake a paused project** — the scheduler lives inside the paused compute. External traffic or Pro only.
+- **A cron that reads Neon generates zero Supabase activity** — keep-alive must name its target explicitly; "the daily job runs" is not proof until the log line names Supabase.
+- **This box: `git ... && ...` is a PowerShell ParserError** (sessions 21/22/24, again) — separate with `;`. Push needed `git pull --rebase` first (remote had moved, again).
 
 ### Session 24 (2026-10-24 — ustaz poster "not saved" report → Supabase-Storage-only uploads + ustaz-save wipe fix)
 
